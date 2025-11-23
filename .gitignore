@@ -1,0 +1,55 @@
+# Build directories
+build/
+build_test/
+bin/
+lib/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Compiled files
+*.o
+*.so
+*.a
+*.out
+*.exe
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Output files
+output/
+results/
+*.mp4
+*.avi
+
+# Model files
+*.engine
+*.onnx
+*.pth
+*.pt
+*.plan
+
+# Logs
+*.log
+logs/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+.eggs/
+*.egg
+
+# System files
+.DS_Store
+Thumbs.db

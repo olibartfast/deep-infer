@@ -1,0 +1,55 @@
+# YOLOv8 DeepStream Configuration File
+# This config file specifies the properties for YOLOv8 inference with DeepStream
+
+[property]
+# GPU device ID
+gpu-id=0
+
+# Preprocessing parameters
+net-scale-factor=0.0039215697906911373
+offsets=0.0;0.0;0.0
+
+# Model color format (0=RGB, 1=BGR, 2=GRAY)
+model-color-format=0
+
+# Model files
+# Provide either onnx-file or model-engine-file
+# If both provided, engine file takes precedence
+onnx-file=../models/yolov8n.onnx
+model-engine-file=../models/yolov8n.engine
+
+# Labels
+labelfile-path=../data/labels/coco.names
+
+# Inference parameters
+batch-size=1
+network-mode=0
+num-detected-classes=80
+interval=0
+gie-unique-id=1
+process-mode=1
+network-type=0
+cluster-mode=2
+maintain-aspect-ratio=1
+
+# Input and output layer names
+# Uncomment and modify if needed
+# network-input-order=0
+# model-engine-file=../models/yolov8n.engine
+# input-tensor-meta=0
+
+# Custom parser for YOLO
+parse-bbox-func-name=NvDsInferParseYolo
+custom-lib-path=/opt/nvidia/deepstream/deepstream/lib/libnvds_infercustomparser.so
+
+# Post-processing parameters
+[class-attrs-all]
+nms-iou-threshold=0.45
+pre-cluster-threshold=0.25
+topk=300
+
+# Optional: Per-class thresholds
+# [class-attrs-0]
+# threshold=0.5
+# [class-attrs-1]
+# threshold=0.5
