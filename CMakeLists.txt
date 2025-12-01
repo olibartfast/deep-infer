@@ -29,6 +29,15 @@ pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
 pkg_check_modules(GSTREAMER_VIDEO REQUIRED gstreamer-video-1.0)
 pkg_check_modules(GLIB REQUIRED glib-2.0)
 
+# Fetch vision-core
+include(FetchContent)
+FetchContent_Declare(
+    vision-core
+    GIT_REPOSITORY https://github.com/olibartfast/vision-core.git
+    GIT_TAG main
+)
+FetchContent_MakeAvailable(vision-core)
+
 # DeepStream paths (adjust based on your installation)
 set(DEEPSTREAM_DIR "/opt/nvidia/deepstream/deepstream" CACHE PATH "DeepStream SDK directory")
 set(DEEPSTREAM_LIBS_DIR "${DEEPSTREAM_DIR}/lib")
@@ -91,6 +100,7 @@ link_directories(
 # Link libraries
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
+    vision-core::vision-core
     ${OpenCV_LIBS}
     ${CUDA_LIBRARIES}
     ${GSTREAMER_LIBRARIES}

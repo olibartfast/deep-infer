@@ -18,6 +18,9 @@
 #include "nvbufsurface.h"
 #include "nvbufsurftransform.h"
 
+// Vision Core
+#include <vision-core/core/result_types.hpp>
+
 // Common structures
 struct BoundingBox {
     float x;
