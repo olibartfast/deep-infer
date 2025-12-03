@@ -11,7 +11,7 @@ class TaskInterface {
   virtual TaskType GetTaskType() = 0;
   
   // Process metadata from DeepStream
-  virtual std::vector<Result> ProcessMetadata(
+  virtual std::vector<vision_core::Result> ProcessMetadata(
       NvDsFrameMeta* frame_meta,
       const cv::Mat& frame) = 0;
   

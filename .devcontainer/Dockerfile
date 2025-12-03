@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     libglib2.0-dev \
     pkg-config \
     git \
+    git-lfs \
     gdb \
     curl \
     wget \

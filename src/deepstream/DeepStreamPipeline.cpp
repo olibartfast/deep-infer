@@ -315,9 +315,24 @@ GstPadProbeReturn DeepStreamPipeline::OsdSinkPadBufferProbe(
             // Convert to OpenCV Mat if callback is set
             if (pipeline->frame_callback_ && surface) {
                 // Extract frame data and create Result
-                Result result;
-                // Process metadata and create result
-                // This would be implemented based on specific task
+                AppResult result;
+                
+                // Iterate object metadata
+                for (NvDsMetaList* l_obj = frame_meta->obj_meta_list; l_obj != nullptr; l_obj = l_obj->next) {
+                    NvDsObjectMeta* obj_meta = (NvDsObjectMeta*)(l_obj->data);
+                    
+                    vision_core::Detection det;
+                    det.box = cv::Rect2f(
+                        obj_meta->rect_params.left,
+                        obj_meta->rect_params.top,
+                        obj_meta->rect_params.width,
+                        obj_meta->rect_params.height
+                    );
+                    det.confidence = obj_meta->confidence;
+                    det.class_id = obj_meta->class_id;
+                    
+                    result.results.push_back(det);
+                }
                 
                 pipeline->frame_callback_(result);
             }

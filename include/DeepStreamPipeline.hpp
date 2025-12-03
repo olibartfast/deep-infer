@@ -21,7 +21,7 @@ class DeepStreamPipeline {
   Config GetConfig() const { return config_; }
   
   // Callbacks
-  using FrameCallback = std::function<void(const Result&)>;
+  using FrameCallback = std::function<void(const AppResult&)>;
   void SetFrameCallback(FrameCallback callback);
     
  private:

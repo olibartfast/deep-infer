@@ -22,22 +22,9 @@
 #include <vision-core/core/result_types.hpp>
 
 // Common structures
-struct BoundingBox {
-    float x;
-    float y;
-    float width;
-    float height;
-    float confidence;
-    int class_id;
-    std::string class_name;
-};
-
-struct Result {
+struct AppResult {
     cv::Mat frame;
-    std::vector<BoundingBox> boxes;
-    std::vector<std::vector<cv::Point>> masks;  // For instance segmentation
-    std::vector<float> probabilities;  // For classification
-    cv::Mat flow;  // For optical flow
+    std::vector<vision_core::Result> results;
 };
 
 enum class TaskType {

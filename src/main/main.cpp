@@ -41,9 +41,15 @@ int main(int argc, const char* argv[]) {
         }
         
         // Set frame callback for processing results
-        pipeline.SetFrameCallback([&](const Result& result) {
+        pipeline.SetFrameCallback([&](const AppResult& result) {
             // Process results here
-            logger.Debugf("Processed frame with %zu detections", result.boxes.size());
+            size_t detection_count = 0;
+            for (const auto& res : result.results) {
+                if (std::holds_alternative<vision_core::Detection>(res)) {
+                    detection_count++;
+                }
+            }
+            logger.Debugf("Processed frame with %zu detections", detection_count);
             
             #ifdef WRITE_FRAME
             if (config.write_frame && !result.frame.empty()) {
