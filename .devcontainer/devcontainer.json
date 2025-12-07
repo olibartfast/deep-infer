@@ -1,25 +1,60 @@
 {
 	"name": "DeepStream Inference Lab Dev Container",
-	"build": {
-		"dockerfile": "Dockerfile"
-	},
+	"image": "nvcr.io/nvidia/deepstream:7.1-triton-multiarch",
 	"runArgs": [
-		"--gpus",
-		"all",
+		"--gpus=all",
 		"--net=host",
-		"--privileged"
+		"--privileged",
+		"--ipc=host",
+		"--ulimit=memlock=-1",
+		"--ulimit=stack=67108864"
 	],
+	"mounts": [
+		"source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind",
+		"source=${localWorkspaceFolder},target=/workspace,type=bind"
+	],
+	"containerEnv": {
+		"DISPLAY": "${localEnv:DISPLAY}",
+		"NVIDIA_VISIBLE_DEVICES": "all",
+		"NVIDIA_DRIVER_CAPABILITIES": "all"
+	},
+	"workspaceFolder": "/workspace",
 	"customizations": {
 		"vscode": {
 			"extensions": [
 				"ms-vscode.cpptools",
+				"ms-vscode.cpptools-extension-pack",
 				"ms-vscode.cmake-tools",
-				"twxs.cmake"
-			]
+				"twxs.cmake",
+				"ms-python.python",
+				"ms-python.debugpy",
+				"redhat.vscode-yaml",
+				"ms-vscode.hexdump"
+			],
+			"settings": {
+				"cmake.buildDirectory": "${workspaceFolder}/build",
+				"cmake.configureOnOpen": true,
+				"C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
+			}
 		}
 	},
-	"remoteUser": "vscode",
+	"remoteUser": "root",
 	"features": {
-		"ghcr.io/devcontainers/features/git:1": {}
+		"ghcr.io/devcontainers/features/git:1": {},
+		"ghcr.io/devcontainers/features/nvidia-cuda:1": {
+			"installCudnn": true
+		}
+	},
+	"postCreateCommand": "chmod +x /workspace/scripts/setup/setup_environment.sh && /workspace/scripts/setup/setup_environment.sh",
+	"forwardPorts": [8554, 8080],
+	"portsAttributes": {
+		"8554": {
+			"label": "RTSP Stream",
+			"onAutoForward": "notify"
+		},
+		"8080": {
+			"label": "Web Interface",
+			"onAutoForward": "notify"
+		}
 	}
 }
