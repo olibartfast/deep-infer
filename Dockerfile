@@ -2,7 +2,7 @@
 # Build: docker build --rm -t deepstream-infer-lab .
 # Run: docker run --rm --gpus all deepstream-infer-lab [args]
 
-ARG DEEPSTREAM_VERSION=7.1
+ARG DEEPSTREAM_VERSION=8.0
 FROM nvcr.io/nvidia/deepstream:${DEEPSTREAM_VERSION}-triton-multiarch
 
 # Install dependencies

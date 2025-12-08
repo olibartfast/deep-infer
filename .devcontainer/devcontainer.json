@@ -1,6 +1,6 @@
 {
 	"name": "DeepStream Inference Lab Dev Container",
-	"image": "nvcr.io/nvidia/deepstream:7.1-triton-multiarch",
+	"image": "nvcr.io/nvidia/deepstream:8.0-gc-triton-devel",
 	"runArgs": [
 		"--gpus=all",
 		"--net=host",
@@ -40,10 +40,7 @@
 	},
 	"remoteUser": "root",
 	"features": {
-		"ghcr.io/devcontainers/features/git:1": {},
-		"ghcr.io/devcontainers/features/nvidia-cuda:1": {
-			"installCudnn": true
-		}
+		"ghcr.io/devcontainers/features/git:1": {}
 	},
 	"postCreateCommand": "chmod +x /workspace/scripts/setup/setup_environment.sh && /workspace/scripts/setup/setup_environment.sh",
 	"forwardPorts": [8554, 8080],

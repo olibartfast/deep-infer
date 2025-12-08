@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.19)
 
 project(deepstream-infer-lab)
 
@@ -68,27 +68,9 @@ set(SOURCES
     ${PROJECT_SOURCE_DIR}/src/deepstream/DeepStreamPipeline.cpp
 )
 
-# Detector sources
-set(DETECTOR_SOURCES
-    ${PROJECT_SOURCE_DIR}/src/tasks/object_detection/src/YOLO.cpp
-)
-
-# Classifier sources
-set(CLASSIFIER_SOURCES
-    ${PROJECT_SOURCE_DIR}/src/tasks/classification/src/Classifier.cpp
-)
-
-# Instance segmentation sources
-set(INSTANCE_SEGMENTATION_SOURCES
-    ${PROJECT_SOURCE_DIR}/src/tasks/instance_segmentation/src/YOLOSeg.cpp
-)
-
 # Create executable
 add_executable(${PROJECT_NAME} 
     ${SOURCES}
-    ${DETECTOR_SOURCES}
-    ${CLASSIFIER_SOURCES}
-    ${INSTANCE_SEGMENTATION_SOURCES}
 )
 
 # Link directories
