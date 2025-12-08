@@ -74,9 +74,10 @@ add_executable(${PROJECT_NAME}
 )
 
 # Link directories
-link_directories(
+target_link_directories(${PROJECT_NAME}
+    PRIVATE
     ${DEEPSTREAM_LIBS_DIR}
-    ${CUDA_LIBRARY_DIRS}
+    /usr/local/cuda/targets/x86_64-linux/lib
 )
 
 # Link libraries

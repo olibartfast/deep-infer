@@ -322,13 +322,13 @@ GstPadProbeReturn DeepStreamPipeline::OsdSinkPadBufferProbe(
                     NvDsObjectMeta* obj_meta = (NvDsObjectMeta*)(l_obj->data);
                     
                     vision_core::Detection det;
-                    det.box = cv::Rect2f(
+                    det.bbox = cv::Rect2f(
                         obj_meta->rect_params.left,
                         obj_meta->rect_params.top,
                         obj_meta->rect_params.width,
                         obj_meta->rect_params.height
                     );
-                    det.confidence = obj_meta->confidence;
+                    det.class_confidence = obj_meta->confidence;
                     det.class_id = obj_meta->class_id;
                     
                     result.results.push_back(det);

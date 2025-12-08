@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <opencv2/opencv.hpp>
 
 std::vector<std::string> Split(const std::string& s, char delimiter);
 std::string ToLower(const std::string& str);
