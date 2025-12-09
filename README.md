@@ -1,4 +1,4 @@
-![DeepStream Inference Lab](docs/assets/deepstream-banner.png)
+![DeepStream Inference Lab](docs/assets/deepstream-banner.svg)
 
 # DeepStream Inference Lab - Computer Vision with NVIDIA DeepStream
 
