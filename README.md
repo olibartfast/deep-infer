@@ -169,6 +169,9 @@ sudo apt install \
 sudo apt install build-essential cmake ninja-build pkg-config
 ```
 
+5. **Fetched Dependencies**:
+   - **vision-core**: Automatically fetched via CMake during build from [https://github.com/olibartfast/vision-core](https://github.com/olibartfast/vision-core).
+
 ## Installation
 
 ### Build from Source
