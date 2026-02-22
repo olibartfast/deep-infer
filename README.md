@@ -1,4 +1,4 @@
-![DeepStream Inference Lab](docs/assets/deepstream-banner.png)
+![DeepStream Inference Lab](docs/assets/deepstream-banner.svg)
 
 # DeepStream Inference Lab - Computer Vision with NVIDIA DeepStream
 
@@ -168,6 +168,9 @@ sudo apt install \
 ```bash
 sudo apt install build-essential cmake ninja-build pkg-config
 ```
+
+5. **Fetched Dependencies**:
+   - **vision-core**: Automatically fetched via CMake during build from [https://github.com/olibartfast/vision-core](https://github.com/olibartfast/vision-core).
 
 ## Installation
 
