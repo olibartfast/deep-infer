@@ -1,57 +1,45 @@
 {
-	"name": "DeepStream Inference Lab Dev Container",
-	"image": "nvcr.io/nvidia/deepstream:8.0-gc-triton-devel",
-	"runArgs": [
-		"--gpus=all",
-		"--net=host",
-		"--privileged",
-		"--ipc=host",
-		"--ulimit=memlock=-1",
-		"--ulimit=stack=67108864"
-	],
-	"mounts": [
-		"source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind",
-		"source=${localWorkspaceFolder},target=/workspace,type=bind"
-	],
-	"containerEnv": {
-		"DISPLAY": "${localEnv:DISPLAY}",
-		"NVIDIA_VISIBLE_DEVICES": "all",
-		"NVIDIA_DRIVER_CAPABILITIES": "all"
-	},
-	"workspaceFolder": "/workspace",
-	"customizations": {
-		"vscode": {
-			"extensions": [
-				"ms-vscode.cpptools",
-				"ms-vscode.cpptools-extension-pack",
-				"ms-vscode.cmake-tools",
-				"twxs.cmake",
-				"ms-python.python",
-				"ms-python.debugpy",
-				"redhat.vscode-yaml",
-				"ms-vscode.hexdump"
-			],
-			"settings": {
-				"cmake.buildDirectory": "${workspaceFolder}/build",
-				"cmake.configureOnOpen": true,
-				"C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
-			}
-		}
-	},
-	"remoteUser": "root",
-	"features": {
-		"ghcr.io/devcontainers/features/git:1": {}
-	},
-	"postCreateCommand": "chmod +x /workspace/scripts/setup/setup_environment.sh && /workspace/scripts/setup/setup_environment.sh",
-	"forwardPorts": [8554, 8080],
-	"portsAttributes": {
-		"8554": {
-			"label": "RTSP Stream",
-			"onAutoForward": "notify"
-		},
-		"8080": {
-			"label": "Web Interface",
-			"onAutoForward": "notify"
-		}
-	}
+  "name": "DeepStream Inference Lab",
+  "image": "nvcr.io/nvidia/deepstream:8.0-gc-triton-devel",
+
+  "runArgs": [
+    "--gpus", "all",
+    "--privileged",
+    "--network=host",
+    "--ipc=host",
+    "-e", "DISPLAY=${localEnv:DISPLAY}",
+    "-e", "NVIDIA_DRIVER_CAPABILITIES=compute,utility,video,graphics",
+    "-v", "/tmp/.X11-unix:/tmp/.X11-unix",
+    "-v", "${localWorkspaceFolder}/data:/app/data",
+    "-v", "${localWorkspaceFolder}/output:/app/output"
+  ],
+
+  "workspaceMount": "source=${localWorkspaceFolder},target=/app,type=bind",
+  "workspaceFolder": "/app",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "ms-vscode.cpptools-extension-pack",
+        "twxs.cmake"
+      ],
+      "settings": {
+        "cmake.buildDirectory": "${workspaceFolder}/build",
+        "cmake.configureArgs": [
+          "-DCMAKE_BUILD_TYPE=Debug",
+          "-DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-8.0"
+        ],
+        "C_Cpp.default.includePath": [
+          "${workspaceFolder}/include",
+          "${workspaceFolder}/src",
+          "/opt/nvidia/deepstream/deepstream-8.0/sources/includes",
+          "/usr/local/cuda/include"
+        ]
+      }
+    }
+  },
+
+  "postCreateCommand": "mkdir -p /app/build /app/output"
 }
