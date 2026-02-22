@@ -62,8 +62,6 @@ While both DeepStream and Triton Server are NVIDIA inference solutions, they ser
 - Microservices architecture
 - Need framework flexibility (TensorFlow, PyTorch, ONNX, etc.)
 - REST/gRPC API requirements
-
-
 ## Models
 
 Supported models are provided by the [vision-core](https://github.com/olibartfast/vision-core) library, which is automatically fetched at build time. Please refer to that repository for the full and up-to-date list of supported architectures.
@@ -293,6 +291,20 @@ docker run -it --entrypoint /bin/bash \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     deepstream-infer-lab:latest
 ```
+
+### Dev Container (VS Code)
+
+A `.devcontainer/devcontainer.json` is provided for development inside VS Code using the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
+
+The container uses `nvcr.io/nvidia/deepstream:8.0-gc-triton-devel` directly as its base (no build step needed) and mounts your workspace into `/app` with GPU passthrough, X11 display, and all required `NVIDIA_DRIVER_CAPABILITIES` pre-configured.
+
+To get started, open the repository in VS Code and select **Reopen in Container** when prompted, or run it manually from the Command Palette:
+
+```
+Dev Containers: Reopen in Container
+```
+
+CMake Tools is pre-configured to build in Debug mode against the DeepStream 8.0 headers automatically.
 
 ## Performance Tips
 
