@@ -57,11 +57,23 @@ FetchContent_MakeAvailable(vision-core)
 #   3. Unversioned path (DS 7.x and earlier)
 # ---------------------------------------------------------------------------
 if(NOT DEFINED DEEPSTREAM_DIR OR DEEPSTREAM_DIR STREQUAL "")
-    if(EXISTS "/opt/nvidia/deepstream/deepstream-8.0")
-        set(DEEPSTREAM_DIR "/opt/nvidia/deepstream/deepstream-8.0")
-    elseif(EXISTS "/opt/nvidia/deepstream/deepstream")
-        set(DEEPSTREAM_DIR "/opt/nvidia/deepstream/deepstream")
-    else()
+    set(_possible_deepstream_paths
+        /opt/nvidia/deepstream/deepstream-8.0
+        /opt/nvidia/deepstream/deepstream-7.1
+        /opt/nvidia/deepstream/deepstream-7.0
+        /opt/nvidia/deepstream/deepstream-6.4
+        /opt/nvidia/deepstream/deepstream-6.3
+        /opt/nvidia/deepstream/deepstream
+    )
+
+    foreach(_candidate IN LISTS _possible_deepstream_paths)
+        if(EXISTS "${_candidate}")
+            set(DEEPSTREAM_DIR "${_candidate}")
+            break()
+        endif()
+    endforeach()
+
+    if(NOT DEEPSTREAM_DIR)
         message(FATAL_ERROR
             "DeepStream SDK not found. Install it or pass "
             "-DDEEPSTREAM_DIR=<path> to cmake.")
@@ -113,8 +125,28 @@ target_include_directories(${PROJECT_NAME}
 target_link_directories(${PROJECT_NAME}
     PRIVATE
         ${DEEPSTREAM_LIBS_DIR}
-        /usr/local/cuda/targets/x86_64-linux/lib
 )
+
+# Prefer architecture-specific CUDA target libraries (x86_64 or Jetson aarch64)
+set(_cuda_candidate_dirs
+    /usr/local/cuda/targets/${CMAKE_SYSTEM_PROCESSOR}-linux/lib
+    /usr/local/cuda/targets/x86_64-linux/lib
+    /usr/local/cuda/targets/aarch64-linux/lib
+    /usr/local/cuda/lib64
+)
+
+set(_cuda_link_dirs "")
+foreach(_dir IN LISTS _cuda_candidate_dirs)
+    if(EXISTS "${_dir}")
+        list(APPEND _cuda_link_dirs "${_dir}")
+    endif()
+endforeach()
+
+if(_cuda_link_dirs)
+    target_link_directories(${PROJECT_NAME} PRIVATE ${_cuda_link_dirs})
+else()
+    message(WARNING "CUDA target library directory not found; relying on default CUDA_LIBRARIES paths")
+endif()
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE

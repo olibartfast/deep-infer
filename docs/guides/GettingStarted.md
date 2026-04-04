@@ -6,10 +6,10 @@ This guide will help you get started with DeepStream Inference Lab using DeepStr
 
 ### Prerequisites
 
-- Ubuntu 20.04 / 22.04 / 24.04 (DS 8.0 container is Ubuntu 24.04-based)
-- NVIDIA GPU (Tesla T4, RTX/Ampere/Hopper/Blackwell or better)
-- NVIDIA Driver **>= 570.133.20**
-- CUDA **>= 12.8**
+- Ubuntu 20.04 / 22.04 / 24.04 (DS 8.0 container is Ubuntu 24.04-based) or Jetson device (JetPack 6+)
+- NVIDIA GPU (Tesla T4, RTX/Ampere/Hopper/Blackwell or better) or Jetson
+- NVIDIA Driver **>= 570.133.20** (desktop/server) or JetPack driver on Jetson
+- CUDA **>= 12.8** (Jetson uses JetPack CUDA)
 - TensorRT **>= 10.9.0.34**
 
 ### 1. Install Prerequisites
@@ -25,6 +25,10 @@ sudo tar -xvf deepstream_sdk_v8.0.0_x86_64.tbz2 -C /
 cd /opt/nvidia/deepstream/deepstream-8.0/
 sudo ./install.sh
 sudo ldconfig
+
+# Jetson (L4T) example:
+# sudo tar -xvf deepstream_sdk_v6.4.0_aarch64.tbz2 -C /
+# cd /opt/nvidia/deepstream/deepstream-6.4 && sudo ./install.sh && sudo ldconfig
 
 # Install dependencies
 sudo apt update
@@ -51,6 +55,11 @@ mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release -GNinja \
       -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-8.0 ..
 ninja
+
+# Jetson (L4T) example:
+# cmake -DCMAKE_BUILD_TYPE=Release -GNinja \
+#       -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-6.4 ..
+# ninja
 ```
 
 ### 3. Prepare Your Model
@@ -136,18 +145,22 @@ pre-cluster-threshold=0.25
 
 ## Docker Usage (8.0-gc-triton-devel)
 
-The project uses the **`8.0-gc-triton-devel`** container as its base image. This includes the Graph Composer tools, Triton Inference Server backends, and the full DeepStream 8.0 development SDK.
+The project uses the **`8.0-gc-triton-devel`** container as its base image. This includes the Graph Composer tools, Triton Inference Server backends, and the full DeepStream 8.0 development SDK. On Jetson the build script switches to the DeepStream L4T base (for example `nvcr.io/nvidia/deepstream-l4t:6.4-triton`).
 
 ### Pull the base image
 
 ```bash
 docker pull nvcr.io/nvidia/deepstream:8.0-gc-triton-devel
+
+# Jetson (L4T) base example
+docker pull nvcr.io/nvidia/deepstream-l4t:6.4-triton
 ```
 
 ### Build project image
 
 ```bash
-./scripts/docker/build_docker.sh
+./scripts/docker/build_docker.sh        # x86_64 default
+./scripts/docker/build_docker.sh 6.4    # Jetson example
 ```
 
 ### Run interactively (for development/debugging)
@@ -176,6 +189,8 @@ docker run --rm --gpus all --privileged --network host \
     --source=/app/data/videos/sample.mp4 \
     --config=/app/configs/yolov8_config.txt \
     --model_type=yolov8
+
+# Jetson note: if `--gpus all` is unavailable, use `--runtime nvidia`.
 ```
 
 ## Performance Optimization

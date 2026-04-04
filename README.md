@@ -70,14 +70,14 @@ Supported models are provided by the [vision-core](https://github.com/olibartfas
 
 ### System Requirements
 - Ubuntu 20.04 / 22.04 / 24.04
-- NVIDIA GPU (Tesla T4, RTX/Ampere/Hopper/Blackwell or better)
-- NVIDIA Driver **>= 570.133.20**
-- CUDA **>= 12.8**
+- NVIDIA GPU (Tesla T4, RTX/Ampere/Hopper/Blackwell or better) or Jetson (JetPack 6+)
+- NVIDIA Driver **>= 570.133.20** (desktop/server) or JetPack-provided driver on Jetson
+- CUDA **>= 12.8** (Jetson uses JetPack CUDA)
 - TensorRT **>= 10.9.0.34**
 
 ### Software Dependencies
 
-1. **NVIDIA DeepStream SDK 8.0**:
+1. **NVIDIA DeepStream SDK**:
 ```bash
 # Download deepstream-8.0_8.0.0-1_amd64.deb from NVIDIA NGC:
 # https://catalog.ngc.nvidia.com/orgs/nvidia/resources/deepstream
@@ -88,6 +88,10 @@ sudo tar -xvf deepstream_sdk_v8.0.0_x86_64.tbz2 -C /
 cd /opt/nvidia/deepstream/deepstream-8.0
 sudo ./install.sh
 sudo ldconfig
+
+# Jetson (L4T) example – uses DeepStream 6.4 container/JetPack package:
+# sudo tar -xvf deepstream_sdk_v6.4.0_aarch64.tbz2 -C /
+# cd /opt/nvidia/deepstream/deepstream-6.4 && sudo ./install.sh && sudo ldconfig
 ```
 
 2. **OpenCV 4**:
@@ -142,6 +146,10 @@ mkdir build && cd build
 # DS 8.0 uses a versioned install directory — pass it explicitly:
 cmake -DCMAKE_BUILD_TYPE=Release -GNinja \
       -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-8.0 ..
+
+# Jetson (L4T) DeepStream path example:
+# cmake -DCMAKE_BUILD_TYPE=Release -GNinja \
+#       -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-6.4 ..
 ```
 
 Optional flags:
@@ -259,6 +267,18 @@ This project uses `nvcr.io/nvidia/deepstream:8.0-gc-triton-devel` as its base im
 ./scripts/docker/build_docker.sh [deepstream_version]
 ```
 
+#### Jetson (L4T) container builds
+
+The build script auto-detects `aarch64` and switches to the DeepStream L4T base. For Jetson, use the Jetson DeepStream tag (for example 6.4):
+
+```bash
+# Build on a Jetson device
+./scripts/docker/build_docker.sh 6.4
+
+# Or override the base image explicitly
+BASE_IMAGE=nvcr.io/nvidia/deepstream-l4t:6.4-triton ./scripts/docker/build_docker.sh
+```
+
 ### Run with Docker
 
 ```bash
@@ -279,6 +299,8 @@ docker run --rm --gpus all --privileged \
     --source=/app/data/video.mp4 \
     --config=/app/configs/yolov8_config.txt \
     --model_type=yolov8
+
+# Jetson note: if `--gpus all` is unavailable, use `--runtime nvidia` instead.
 ```
 
 ### Interactive development shell

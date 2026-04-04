@@ -3,7 +3,14 @@
 # Run: docker run --rm --gpus all deepstream-infer-lab [args]
 
 ARG DEEPSTREAM_VERSION=8.0
-FROM nvcr.io/nvidia/deepstream:${DEEPSTREAM_VERSION}-gc-triton-devel
+# Override BASE_IMAGE to build for Jetson/L4T, e.g.
+#   docker build --build-arg DEEPSTREAM_VERSION=6.4 \
+#                --build-arg BASE_IMAGE=nvcr.io/nvidia/deepstream-l4t:6.4-triton .
+ARG BASE_IMAGE=nvcr.io/nvidia/deepstream:${DEEPSTREAM_VERSION}-gc-triton-devel
+FROM ${BASE_IMAGE}
+
+ARG DEEPSTREAM_VERSION
+ARG BASE_IMAGE
 
 # Install dependencies
 # Note: DS 8.0 containers do not package some multimedia codec libraries.
@@ -45,8 +52,8 @@ RUN rm -rf build && \
 LABEL maintainer="Computer Vision DeepStream Client"
 LABEL description="C++ client for computer vision inference with NVIDIA DeepStream"
 LABEL version="1.0"
-LABEL deepstream.version="8.0"
-LABEL base.image="nvcr.io/nvidia/deepstream:8.0-gc-triton-devel"
+LABEL deepstream.version="${DEEPSTREAM_VERSION}"
+LABEL base.image="${BASE_IMAGE}"
 
 # Create non-root user for security
 RUN groupadd -r appuser && useradd -r -g appuser appuser && \
