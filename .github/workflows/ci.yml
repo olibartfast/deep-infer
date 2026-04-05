@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format
+
+      - name: Format check
+        run: |
+          set -euo pipefail
+          files=$(find src include -type f \( -name '*.cpp' -o -name '*.c' -o -name '*.hpp' -o -name '*.h' \))
+          if [ -z "${files}" ]; then
+            echo "No C/C++ sources to format."
+            exit 0
+          fi
+          clang-format --dry-run --Werror ${files}
+
+  sanitizer:
+    if: ${{ secrets.NGC_API_KEY != '' }}
+    runs-on: ubuntu-22.04
+    env:
+      DEEPSTREAM_VERSION: 8.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to NGC
+        uses: docker/login-action@v3
+        with:
+          registry: nvcr.io
+          username: '$oauthtoken'
+          password: ${{ secrets.NGC_API_KEY }}
+
+      - name: Build with sanitizers in DeepStream container
+        run: |
+          set -euo pipefail
+          BASE_IMAGE="nvcr.io/nvidia/deepstream:${DEEPSTREAM_VERSION}-gc-triton-devel"
+          docker pull "${BASE_IMAGE}"
+          docker run --rm \
+            -v "${PWD}:/workspace" \
+            -w /workspace \
+            "${BASE_IMAGE}" \
+            bash -lc "apt-get update && apt-get install -y build-essential cmake ninja-build && \
+              rm -rf build && \
+              cmake -S . -B build -GNinja \
+                -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-${DEEPSTREAM_VERSION} \
+                -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+                -DCMAKE_CXX_FLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer -O1' && \
+              cmake --build build"
