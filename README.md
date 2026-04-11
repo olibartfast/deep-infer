@@ -144,6 +144,11 @@ cmake -DCMAKE_BUILD_TYPE=Release -GNinja \
       -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-8.0 ..
 ```
 
+If DeepStream is installed in a different versioned directory on Jetson
+(for example `deepstream-7.1`), pass that path instead. When DeepStream is not
+installed, the project now still builds, but the resulting binary prints a
+clear runtime error until the SDK is installed and CMake is re-run.
+
 Optional flags:
 - `-DWITH_SHOW_FRAME=ON`: Enable frame display
 - `-DWITH_WRITE_FRAME=ON`: Enable frame writing (default: ON)
@@ -251,13 +256,62 @@ See `configs/` directory for examples.
 
 ## Docker Support
 
-This project uses `nvcr.io/nvidia/deepstream:8.0-gc-triton-devel` as its base image. This container includes the Graph Composer tools, Triton Inference Server backends, and the full DeepStream 8.0 development SDK.
+This repository supports multiple DeepStream container profiles. On Jetson Orin devices running JetPack 6.x / L4T 36.x, the matching profile is `nvcr.io/nvidia/deepstream:7.1-triton-multiarch`. On x86_64 hosts, the default profile remains `nvcr.io/nvidia/deepstream:8.0-gc-triton-devel`.
+
+### Jetson Orin Nano: install Docker and NVIDIA runtime
+
+If you want to run DeepStream containers on a Jetson without installing DeepStream locally, install Docker and the Jetson container runtime from the JetPack/L4T apt repositories:
+
+```bash
+sudo apt update
+sudo apt install -y docker.io nvidia-container nvidia-l4t-gstreamer
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER
+```
+
+Then log out and back in, or start a new login shell, before testing Docker access:
+
+```bash
+docker version
+docker ps
+```
+
+To verify which Jetson base system you have before choosing a DeepStream container:
+
+```bash
+. /etc/os-release && echo "$NAME $VERSION"
+cat /etc/nv_tegra_release
+```
+
+For Jetson compatibility, match DeepStream to JetPack/L4T:
+
+- L4T 36.x / Ubuntu 22.04 / JetPack 6.x: use DeepStream 7.1 on Jetson
+- L4T 38.2 / JetPack 7.0: use DeepStream 8.0
+- L4T 38.4 / Ubuntu 24.04 / JetPack 7.1: use DeepStream 9.0
+
+So a Jetson Orin Nano still on Ubuntu 22.04 should not target the DeepStream 9.0 Jetson container yet; upgrade to JetPack 7.1 first if you want `nvcr.io/nvidia/deepstream:9.0-triton-multiarch`.
 
 ### Build Docker Image
 
 ```bash
-./scripts/docker/build_docker.sh [deepstream_version]
+./scripts/docker/build_docker.sh
 ```
+
+`build_docker.sh` now resolves a target profile automatically from the current host:
+
+- `jetson-ds7.1` for Jetson devices on the current L4T 36.x / JetPack 6.x generation
+- `x86-ds8.0` for x86_64 hosts by default
+
+You can also force a specific profile:
+
+```bash
+./scripts/docker/build_docker.sh jetson-ds7.1
+./scripts/docker/build_docker.sh x86-ds8.0
+./scripts/docker/build_docker.sh x86-ds9.0
+./scripts/docker/build_docker.sh --print-config
+```
+
+> **Note:** NVIDIA documents Jetson DeepStream containers primarily as deployment images. On Jetson, the supported path is still to build natively against a local DeepStream SDK or package a prebuilt binary into the Jetson runtime image.
 
 ### Run with Docker
 
@@ -296,7 +350,7 @@ docker run -it --entrypoint /bin/bash \
 
 A `.devcontainer/devcontainer.json` is provided for development inside VS Code using the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
 
-The container uses `nvcr.io/nvidia/deepstream:8.0-gc-triton-devel` directly as its base (no build step needed) and mounts your workspace into `/app` with GPU passthrough, X11 display, and all required `NVIDIA_DRIVER_CAPABILITIES` pre-configured.
+The dev container now builds from `.devcontainer/Dockerfile` and is preconfigured against the Jetson-compatible DeepStream 7.1 headers.
 
 To get started, open the repository in VS Code and select **Reopen in Container** when prompted, or run it manually from the Command Palette:
 
@@ -304,7 +358,7 @@ To get started, open the repository in VS Code and select **Reopen in Container*
 Dev Containers: Reopen in Container
 ```
 
-CMake Tools is pre-configured to build in Debug mode against the DeepStream 8.0 headers automatically.
+CMake Tools is pre-configured to build in Debug mode against the Jetson-compatible DeepStream 7.1 headers inside the dev container.
 
 ## Performance Tips
 

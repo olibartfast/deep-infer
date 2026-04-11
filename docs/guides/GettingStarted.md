@@ -134,13 +134,45 @@ pre-cluster-threshold=0.25
     --show
 ```
 
-## Docker Usage (8.0-gc-triton-devel)
+## Docker Usage
 
-The project uses the **`8.0-gc-triton-devel`** container as its base image. This includes the Graph Composer tools, Triton Inference Server backends, and the full DeepStream 8.0 development SDK.
+The project supports host-specific DeepStream container profiles. On Jetson Orin devices running JetPack 6.x / L4T 36.x, the matching profile is **`7.1-triton-multiarch`**. On x86_64, the default profile remains **`8.0-gc-triton-devel`**.
 
-### Pull the base image
+### Jetson Orin Nano: Docker prerequisites
+
+To run DeepStream containers on Jetson without a local DeepStream install:
 
 ```bash
+sudo apt update
+sudo apt install -y docker.io nvidia-container nvidia-l4t-gstreamer
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER
+```
+
+Log out and back in before validating access:
+
+```bash
+docker version
+docker ps
+```
+
+To identify the Jetson software baseline:
+
+```bash
+. /etc/os-release && echo "$NAME $VERSION"
+cat /etc/nv_tegra_release
+```
+
+Use the matching DeepStream generation for Jetson:
+
+- JetPack 6.x / L4T 36.x / Ubuntu 22.04 -> DeepStream 7.1
+- JetPack 7.0 / L4T 38.2 -> DeepStream 8.0
+- JetPack 7.1 / L4T 38.4 / Ubuntu 24.04 -> DeepStream 9.0
+
+### Pull the matching base image
+
+```bash
+docker pull nvcr.io/nvidia/deepstream:7.1-triton-multiarch   # Jetson Orin / JetPack 6.x
 docker pull nvcr.io/nvidia/deepstream:8.0-gc-triton-devel
 ```
 
@@ -149,6 +181,19 @@ docker pull nvcr.io/nvidia/deepstream:8.0-gc-triton-devel
 ```bash
 ./scripts/docker/build_docker.sh
 ```
+
+The build script auto-selects a Docker target profile from the current host. On Jetson Orin devices running JetPack 6.x / L4T 36.x it resolves to `jetson-ds7.1`; on x86_64 it resolves to `x86-ds8.0`.
+
+To inspect or override the selection:
+
+```bash
+./scripts/docker/build_docker.sh --print-config
+./scripts/docker/build_docker.sh jetson-ds7.1
+./scripts/docker/build_docker.sh x86-ds8.0
+./scripts/docker/build_docker.sh x86-ds9.0
+```
+
+> **Note:** NVIDIA treats Jetson DeepStream containers primarily as deployment images. For a supported Jetson build workflow, compile natively against a local Jetson DeepStream SDK and then package the resulting binary into the Jetson container.
 
 ### Run interactively (for development/debugging)
 
