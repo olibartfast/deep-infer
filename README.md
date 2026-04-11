@@ -69,15 +69,25 @@ Supported models are provided by the [vision-core](https://github.com/olibartfas
 ## Prerequisites
 
 ### System Requirements
+
+#### For x86_64 Systems (Desktop/Server)
 - Ubuntu 20.04 / 22.04 / 24.04
 - NVIDIA GPU (Tesla T4, RTX/Ampere/Hopper/Blackwell or better)
 - NVIDIA Driver **>= 570.133.20**
 - CUDA **>= 12.8**
 - TensorRT **>= 10.9.0.34**
 
+#### For Jetson Orin with JetPack 6.x
+- JetPack 6.2 (L4T 36.4.x) or later
+- NVIDIA Orin series GPU (Orin Nano, Orin NX, or AGX Orin)
+- CUDA **12.6** (included with JetPack 6.2)
+- TensorRT **10.3** (included with JetPack 6.2)
+
 ### Software Dependencies
 
-1. **NVIDIA DeepStream SDK 8.0**:
+#### 1. NVIDIA DeepStream SDK
+
+##### For x86_64 Systems (DeepStream 8.0):
 ```bash
 # Download deepstream-8.0_8.0.0-1_amd64.deb from NVIDIA NGC:
 # https://catalog.ngc.nvidia.com/orgs/nvidia/resources/deepstream
@@ -88,6 +98,16 @@ sudo tar -xvf deepstream_sdk_v8.0.0_x86_64.tbz2 -C /
 cd /opt/nvidia/deepstream/deepstream-8.0
 sudo ./install.sh
 sudo ldconfig
+```
+
+##### For Jetson Orin with JetPack 6.x (DeepStream 7.1):
+```bash
+# Install DeepStream 7.1 from NVIDIA repository
+sudo apt update
+sudo apt install deepstream-7.1
+
+# Optional: Install RTSP server library if needed (resolves libgstrtspserver-1.0.so.0 warnings)
+sudo apt install libgstrtspserver-1.0-0
 ```
 
 2. **OpenCV 4**:
@@ -126,10 +146,7 @@ sudo apt install build-essential cmake ninja-build pkg-config
 
 ### Build from Source
 
-For a Jetson Orin, the shortest path to a working executable is still a native
-build against the DeepStream SDK installed on the device. Docker mode is also
-supported and uses NVIDIA NGC DeepStream images, but treat that as an additional
-deployment path rather than the only supported build flow.
+This project supports both x86_64 systems (with DeepStream 8.0+) and Jetson Orin devices (with DeepStream 7.1+).
 
 1. Clone the repository:
 ```bash
@@ -153,20 +170,28 @@ mkdir build && cd build
 ```
 
 4. Configure with CMake:
-```bash
-# DS 8.0 uses a versioned install directory — pass it explicitly:
-cmake -DCMAKE_BUILD_TYPE=Release -GNinja \
-      -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-8.0 ..
-```
+   
+   #### For x86_64 Systems (DeepStream 8.0+):
+   ```bash
+   # DS 8.0 uses a versioned install directory — pass it explicitly:
+   cmake -DCMAKE_BUILD_TYPE=Release -GNinja \
+         -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-8.0 ..
+   ```
+   
+   #### For Jetson Orin with JetPack 6.x (DeepStream 7.1):
+   ```bash
+   # DS 7.1 uses a versioned install directory:
+   cmake -DCMAKE_BUILD_TYPE=Release -GNinja \
+         -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-7.1 ..
+   ```
+   
+   If DeepStream is installed in a different versioned directory, pass that path instead.
+   When DeepStream is not installed, the project still builds, but the resulting binary
+   prints a clear runtime error until the SDK is installed and CMake is re-run.
 
-If DeepStream is installed in a different versioned directory on Jetson
-(for example `deepstream-7.1`), pass that path instead. When DeepStream is not
-installed, the project now still builds, but the resulting binary prints a
-clear runtime error until the SDK is installed and CMake is re-run.
-
-Optional flags:
-- `-DWITH_SHOW_FRAME=ON`: Enable frame display
-- `-DWITH_WRITE_FRAME=ON`: Enable frame writing (default: ON)
+   Optional flags:
+   - `-DWITH_SHOW_FRAME=ON`: Enable frame display
+   - `-DWITH_WRITE_FRAME=ON`: Enable frame writing (default: ON)
 
 5. Build:
 ```bash
