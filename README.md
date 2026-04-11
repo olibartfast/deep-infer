@@ -126,18 +126,33 @@ sudo apt install build-essential cmake ninja-build pkg-config
 
 ### Build from Source
 
+For a Jetson Orin, the shortest path to a working executable is still a native
+build against the DeepStream SDK installed on the device. Docker mode is also
+supported and uses NVIDIA NGC DeepStream images, but treat that as an additional
+deployment path rather than the only supported build flow.
+
 1. Clone the repository:
 ```bash
 git clone https://github.com/olibartfast/deepstream-infer-lab.git
 cd deepstream-infer-lab
 ```
 
-2. Create build directory:
+2. Ensure host build tools are installed:
+
+```bash
+sudo apt update
+sudo apt install -y build-essential cmake ninja-build pkg-config
+```
+
+If you prefer not to install Ninja, you can omit `-GNinja` in the configure
+step below and use CMake's default generator instead.
+
+3. Create build directory:
 ```bash
 mkdir build && cd build
 ```
 
-3. Configure with CMake:
+4. Configure with CMake:
 ```bash
 # DS 8.0 uses a versioned install directory — pass it explicitly:
 cmake -DCMAKE_BUILD_TYPE=Release -GNinja \
@@ -153,19 +168,19 @@ Optional flags:
 - `-DWITH_SHOW_FRAME=ON`: Enable frame display
 - `-DWITH_WRITE_FRAME=ON`: Enable frame writing (default: ON)
 
-4. Build:
+5. Build:
 ```bash
 ninja
 ```
 
 ### Docker Installation
 
-```bash
-# Build Docker image (uses nvcr.io/nvidia/deepstream:8.0-gc-triton-devel as base)
-./scripts/docker/build_docker.sh
+Docker mode uses the upstream NGC DeepStream image directly. The repository is
+mounted into the container at runtime; no derived image build is required for
+the Jetson workflow.
 
-# Or manually
-docker build -t deepstream-infer-lab .
+```bash
+./scripts/docker/build_docker.sh
 ```
 
 ## Configuration
@@ -256,7 +271,7 @@ See `configs/` directory for examples.
 
 ## Docker Support
 
-This repository supports multiple DeepStream container profiles. On Jetson Orin devices running JetPack 6.x / L4T 36.x, the matching profile is `nvcr.io/nvidia/deepstream:7.1-triton-multiarch`. On x86_64 hosts, the default profile remains `nvcr.io/nvidia/deepstream:8.0-gc-triton-devel`.
+This repository supports multiple DeepStream container profiles. On Jetson Orin devices running JetPack 6.x / L4T 36.4.x, the default tested profile is `nvcr.io/nvidia/deepstream:7.1-samples-multiarch`. On x86_64 hosts, the default profile remains `nvcr.io/nvidia/deepstream:8.0-gc-triton-devel`.
 
 ### Jetson Orin Nano: install Docker and NVIDIA runtime
 
@@ -276,6 +291,16 @@ docker version
 docker ps
 ```
 
+If `docker` commands fail with `permission denied while trying to connect to the docker API at unix:///var/run/docker.sock`, your user is not yet using the `docker` group in the current session. Fix it with:
+
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
+docker version
+```
+
+If `newgrp docker` is not convenient, log out and back in, then retry the pull or helper script.
+
 To verify which Jetson base system you have before choosing a DeepStream container:
 
 ```bash
@@ -291,15 +316,15 @@ For Jetson compatibility, match DeepStream to JetPack/L4T:
 
 So a Jetson Orin Nano still on Ubuntu 22.04 should not target the DeepStream 9.0 Jetson container yet; upgrade to JetPack 7.1 first if you want `nvcr.io/nvidia/deepstream:9.0-triton-multiarch`.
 
-### Build Docker Image
+### Prepare Docker Runtime
 
 ```bash
 ./scripts/docker/build_docker.sh
 ```
 
-`build_docker.sh` now resolves a target profile automatically from the current host:
+`build_docker.sh` now resolves a target profile automatically from the current host and pulls the matching upstream NGC image:
 
-- `jetson-ds7.1` for Jetson devices on the current L4T 36.x / JetPack 6.x generation
+- `jetson-ds7.1` for Jetson devices on the current L4T 36.4.x / JetPack 6.x generation, using `7.1-samples-multiarch`
 - `x86-ds8.0` for x86_64 hosts by default
 
 You can also force a specific profile:
@@ -311,29 +336,58 @@ You can also force a specific profile:
 ./scripts/docker/build_docker.sh --print-config
 ```
 
-> **Note:** NVIDIA documents Jetson DeepStream containers primarily as deployment images. On Jetson, the supported path is still to build natively against a local DeepStream SDK or package a prebuilt binary into the Jetson runtime image.
+> **Note:** On Jetson, build the executable on the host against the local DeepStream SDK, then run that host-built binary inside the mounted NGC runtime container.
 
 ### Run with Docker
 
 ```bash
+# Ensure the helper scripts are executable:
+chmod +x scripts/docker/build_docker.sh \
+         scripts/docker/build_in_container.sh \
+         scripts/docker/run_yolo_detection.sh \
+         scripts/docker/run_rtsp_stream.sh
+
+# Then pull the matching DeepStream runtime image:
+./scripts/docker/build_docker.sh jetson-ds7.1
+
+# Build inside the mounted NGC container:
+./scripts/docker/build_in_container.sh jetson-ds7.1
+
 # Object detection on video
-./scripts/docker/run_yolo_detection.sh
+./scripts/docker/run_yolo_detection.sh jetson-ds7.1
 
 # RTSP stream processing
-./scripts/docker/run_rtsp_stream.sh rtsp://camera-ip:8554/stream
+./scripts/docker/run_rtsp_stream.sh rtsp://camera-ip:8554/stream jetson-ds7.1
 
-# Custom command
-docker run --rm --gpus all --privileged \
+# Custom command using the upstream NGC runtime image directly
+docker run --rm --gpus all --privileged --network host --ipc=host \
+    --ulimit memlock=-1 --ulimit stack=67108864 \
     -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,video,graphics \
-    -v ${PWD}/data:/app/data \
-    -v ${PWD}/configs:/app/configs \
-    -v ${PWD}/models:/app/models \
-    -v ${PWD}/output:/app/output \
-    deepstream-infer-lab:latest \
-    --source=/app/data/video.mp4 \
-    --config=/app/configs/yolov8_config.txt \
-    --model_type=yolov8
+    -v ${PWD}:/workspace/deepstream-infer-lab \
+    -w /workspace/deepstream-infer-lab \
+    nvcr.io/nvidia/deepstream:7.1-samples-multiarch \
+    /workspace/deepstream-infer-lab/build/deepstream-infer-lab \
+      --source=/workspace/deepstream-infer-lab/data/video.mp4 \
+      --config=/workspace/deepstream-infer-lab/configs/yolov8_config.txt \
+      --model_type=yolov8
 ```
+
+The helper scripts mount the repository root into `/workspace/deepstream-infer-lab`.
+`build_in_container.sh` builds the executable inside the upstream NGC image and
+writes the resulting `build/` directory back to the host through that mount.
+The runtime scripts then execute that built binary from the mounted workspace.
+On Jetson, the runtime scripts also install the required media and OpenCV codec
+packages inside the container session before launching the binary.
+
+If the in-container link step fails on Jetson with `libheif.so.1` unresolved
+references to `libde265` or `libx265`, rerun `build_in_container.sh`. The script
+now installs NVIDIA's optional codec additions when available and also installs
+the missing HEIF codec runtime packages inside the container before building.
+The in-container build also passes `-DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda` to
+avoid `FindCUDA` detection failures inside the NGC image.
+
+If the host configure step fails with `CMake was unable to find a build program
+corresponding to "Ninja"`, install `ninja-build` or rerun CMake without `-GNinja`.
 
 ### Interactive development shell
 

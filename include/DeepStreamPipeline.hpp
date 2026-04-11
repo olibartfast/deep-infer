@@ -4,6 +4,7 @@
 #include "common.hpp"
 #include "Config.hpp"
 #include "Logger.hpp"
+#include <functional>
 #include <memory>
 
 class DeepStreamPipeline {
@@ -33,6 +34,7 @@ class DeepStreamPipeline {
   GstElement* pgie_;  // Primary GIE (inference engine)
   GstElement* nvvidconv_;
   GstElement* nvosd_;  // On-screen display
+  GstElement* egltransform_;
   GstElement* sink_;
   GstElement* tracker_;  // Optional tracker
   
@@ -57,11 +59,14 @@ class DeepStreamPipeline {
   static GstPadProbeReturn OsdSinkPadBufferProbe(
       GstPad* pad, GstPadProbeInfo* info, gpointer user_data);
   static gboolean BusCall(GstBus* bus, GstMessage* msg, gpointer data);
+  static void DecodebinPadAdded(GstElement* decodebin, GstPad* pad, gpointer user_data);
   
   // Helper methods
   bool CreatePrimaryGIE();
   bool CreateTracker();
   bool CreateAnalytics();
+  std::string BuildSourceUri() const;
+  bool IsLiveSource() const;
   std::string GetSourceType() const;
 };
 

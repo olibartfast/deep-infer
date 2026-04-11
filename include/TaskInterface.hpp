@@ -2,6 +2,7 @@
 #define DEEPSTREAM_INFER_LAB_INCLUDE_TASK_INTERFACE_HPP_
 
 #include "common.hpp"
+#include <fstream>
 #include <memory>
 
 class TaskInterface {

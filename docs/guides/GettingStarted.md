@@ -136,7 +136,7 @@ pre-cluster-threshold=0.25
 
 ## Docker Usage
 
-The project supports host-specific DeepStream container profiles. On Jetson Orin devices running JetPack 6.x / L4T 36.x, the matching profile is **`7.1-triton-multiarch`**. On x86_64, the default profile remains **`8.0-gc-triton-devel`**.
+The project supports host-specific DeepStream container profiles. On Jetson Orin devices running JetPack 6.x / L4T 36.4.x, the default tested profile is **`7.1-samples-multiarch`**. On x86_64, the default profile remains **`8.0-gc-triton-devel`**.
 
 ### Jetson Orin Nano: Docker prerequisites
 
@@ -172,17 +172,20 @@ Use the matching DeepStream generation for Jetson:
 ### Pull the matching base image
 
 ```bash
-docker pull nvcr.io/nvidia/deepstream:7.1-triton-multiarch   # Jetson Orin / JetPack 6.x
+docker pull nvcr.io/nvidia/deepstream:7.1-samples-multiarch   # Jetson Orin / JetPack 6.x
 docker pull nvcr.io/nvidia/deepstream:8.0-gc-triton-devel
 ```
 
-### Build project image
+### Prepare Docker runtime
 
 ```bash
 ./scripts/docker/build_docker.sh
 ```
 
-The build script auto-selects a Docker target profile from the current host. On Jetson Orin devices running JetPack 6.x / L4T 36.x it resolves to `jetson-ds7.1`; on x86_64 it resolves to `x86-ds8.0`.
+The script auto-selects a Docker target profile from the current host and pulls
+the matching upstream NGC DeepStream image. On Jetson Orin devices running
+JetPack 6.x / L4T 36.x it resolves to `jetson-ds7.1`; on x86_64 it resolves to
+`x86-ds8.0`.
 
 To inspect or override the selection:
 
@@ -193,7 +196,7 @@ To inspect or override the selection:
 ./scripts/docker/build_docker.sh x86-ds9.0
 ```
 
-> **Note:** NVIDIA treats Jetson DeepStream containers primarily as deployment images. For a supported Jetson build workflow, compile natively against a local Jetson DeepStream SDK and then package the resulting binary into the Jetson container.
+> **Note:** NVIDIA treats Jetson DeepStream containers primarily as deployment images. For Jetson, compile the executable natively on the host against the local DeepStream SDK, then run that host-built binary inside the mounted NGC runtime container.
 
 ### Run interactively (for development/debugging)
 
@@ -203,25 +206,54 @@ docker run -it --entrypoint /bin/bash \
     --gpus all --rm --network=host --privileged \
     -e DISPLAY=${DISPLAY} \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    deepstream-infer-lab:latest
+    -v ${PWD}:/workspace/deepstream-infer-lab \
+    -w /workspace/deepstream-infer-lab \
+    nvcr.io/nvidia/deepstream:7.1-samples-multiarch
 ```
 
 ### Run inference
 
 ```bash
-docker run --rm --gpus all --privileged --network host \
+# First build locally on the host:
+sudo apt update
+sudo apt install -y build-essential cmake ninja-build pkg-config
+chmod +x scripts/docker/build_docker.sh \
+         scripts/docker/build_in_container.sh \
+         scripts/docker/run_yolo_detection.sh \
+         scripts/docker/run_rtsp_stream.sh
+
+# Then pull the matching runtime image:
+./scripts/docker/build_docker.sh jetson-ds7.1
+
+# Build inside the mounted NGC container:
+./scripts/docker/build_in_container.sh jetson-ds7.1
+
+# Helper script:
+./scripts/docker/run_yolo_detection.sh jetson-ds7.1
+
+# Equivalent direct docker run:
+docker run --rm --gpus all --privileged --network host --ipc=host \
+    --ulimit memlock=-1 --ulimit stack=67108864 \
     -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,video,graphics \
+    -e DISPLAY=${DISPLAY:-:0} \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -v ${PWD}/data:/app/data \
-    -v ${PWD}/configs:/app/configs \
-    -v ${PWD}/models:/app/models \
-    -v ${PWD}/output:/app/output \
-    deepstream-infer-lab:latest \
-    --source=/app/data/videos/sample.mp4 \
-    --config=/app/configs/yolov8_config.txt \
-    --model_type=yolov8
+    -v ${PWD}:/workspace/deepstream-infer-lab \
+    -w /workspace/deepstream-infer-lab \
+    nvcr.io/nvidia/deepstream:7.1-samples-multiarch \
+    /workspace/deepstream-infer-lab/build/deepstream-infer-lab \
+      --source=/workspace/deepstream-infer-lab/data/videos/sample.mp4 \
+      --config=/workspace/deepstream-infer-lab/configs/yolov8_config.txt \
+      --model_type=yolov8
 ```
+
+If the link step fails with `libheif.so.1` unresolved references to `libde265`
+or `libx265`, rerun `build_in_container.sh`. The script installs NVIDIA's
+optional codec additions when available and also installs the HEIF codec runtime
+packages inside the container before building.
+The runtime helper scripts install the same required media and OpenCV codec
+packages inside the container session before launching the built binary.
+The build helper also passes `-DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda` to avoid
+`FindCUDA` detection failures inside the NGC image.
 
 ## Performance Optimization
 
@@ -270,6 +302,21 @@ deepstream-app --version
 # If missing, re-run the DS install script
 sudo /opt/nvidia/deepstream/deepstream-8.0/install.sh
 ```
+
+### Issue: `permission denied while trying to connect to the docker API`
+
+Your user is not able to access `/var/run/docker.sock`. Add the user to the
+`docker` group and refresh the session:
+
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
+docker version
+docker ps
+```
+
+If `newgrp docker` is not convenient, log out and back in before retrying the
+DeepStream NGC image pull or any of the helper scripts.
 
 ### Issue: Missing codec / ffmpeg warnings
 

@@ -25,6 +25,12 @@ endif()
 # ---------------------------------------------------------------------------
 # Required packages
 # ---------------------------------------------------------------------------
+if((NOT DEFINED CUDA_TOOLKIT_ROOT_DIR OR CUDA_TOOLKIT_ROOT_DIR STREQUAL "")
+   AND EXISTS "/usr/local/cuda")
+    set(CUDA_TOOLKIT_ROOT_DIR "/usr/local/cuda" CACHE PATH
+        "CUDA toolkit root directory" FORCE)
+endif()
+
 find_package(OpenCV REQUIRED)
 find_package(CUDA   REQUIRED)
 find_package(PkgConfig REQUIRED)
@@ -46,40 +52,44 @@ FetchContent_MakeAvailable(vision-core)
 
 # ---------------------------------------------------------------------------
 # DeepStream paths
-# DeepStream 8.0 installs to a versioned directory:
-#   /opt/nvidia/deepstream/deepstream-8.0
-# Earlier versions used the unversioned path:
-#   /opt/nvidia/deepstream/deepstream
-#
-# Detection order (first match wins):
-#   1. -DDEEPSTREAM_DIR=<path>  passed at configure time
-#   2. Versioned path  (DS 8.0+)
-#   3. Unversioned path (DS 7.x and earlier)
 # ---------------------------------------------------------------------------
-if(NOT DEFINED DEEPSTREAM_DIR OR DEEPSTREAM_DIR STREQUAL "")
-    if(EXISTS "/opt/nvidia/deepstream/deepstream-8.0")
-        set(DEEPSTREAM_DIR "/opt/nvidia/deepstream/deepstream-8.0")
-    elseif(EXISTS "/opt/nvidia/deepstream/deepstream")
-        set(DEEPSTREAM_DIR "/opt/nvidia/deepstream/deepstream")
-    else()
-        message(FATAL_ERROR
-            "DeepStream SDK not found. Install it or pass "
-            "-DDEEPSTREAM_DIR=<path> to cmake.")
+set(DEEPSTREAM_SEARCH_DIRS "")
+if(DEFINED DEEPSTREAM_DIR AND NOT DEEPSTREAM_DIR STREQUAL "")
+    list(APPEND DEEPSTREAM_SEARCH_DIRS "${DEEPSTREAM_DIR}")
+endif()
+
+list(APPEND DEEPSTREAM_SEARCH_DIRS
+    "/opt/nvidia/deepstream/deepstream-8.0"
+    "/opt/nvidia/deepstream/deepstream-7.1"
+    "/opt/nvidia/deepstream/deepstream-7.0"
+    "/opt/nvidia/deepstream/deepstream-6.4"
+    "/opt/nvidia/deepstream/deepstream-6.3"
+    "/opt/nvidia/deepstream/deepstream"
+)
+list(REMOVE_DUPLICATES DEEPSTREAM_SEARCH_DIRS)
+
+set(DEEPSTREAM_FOUND OFF)
+set(DEEPSTREAM_DIR "")
+foreach(candidate_dir IN LISTS DEEPSTREAM_SEARCH_DIRS)
+    if(EXISTS "${candidate_dir}/sources/includes/gstnvdsmeta.h")
+        set(DEEPSTREAM_FOUND ON)
+        set(DEEPSTREAM_DIR "${candidate_dir}")
+        break()
     endif()
+endforeach()
+
+set(DEEPSTREAM_DIR "${DEEPSTREAM_DIR}" CACHE PATH "DeepStream SDK root directory")
+
+if(DEEPSTREAM_FOUND)
+    set(DEEPSTREAM_LIBS_DIR "${DEEPSTREAM_DIR}/lib")
+    set(DEEPSTREAM_INC_DIR  "${DEEPSTREAM_DIR}/sources/includes")
+    message(STATUS "DeepStream SDK : ${DEEPSTREAM_DIR}")
+    message(STATUS "DeepStream libs: ${DEEPSTREAM_LIBS_DIR}")
+else()
+    message(WARNING
+        "DeepStream SDK not found. Building without DeepStream runtime support. "
+        "Install it or pass -DDEEPSTREAM_DIR=<path> and reconfigure to enable the full pipeline.")
 endif()
-
-set(DEEPSTREAM_DIR      "${DEEPSTREAM_DIR}" CACHE PATH "DeepStream SDK root directory")
-set(DEEPSTREAM_LIBS_DIR "${DEEPSTREAM_DIR}/lib")
-set(DEEPSTREAM_INC_DIR  "${DEEPSTREAM_DIR}/sources/includes")
-
-if(NOT EXISTS "${DEEPSTREAM_INC_DIR}")
-    message(FATAL_ERROR
-        "DeepStream include directory not found: ${DEEPSTREAM_INC_DIR}\n"
-        "Check that DEEPSTREAM_DIR (${DEEPSTREAM_DIR}) points to a valid SDK installation.")
-endif()
-
-message(STATUS "DeepStream SDK : ${DEEPSTREAM_DIR}")
-message(STATUS "DeepStream libs: ${DEEPSTREAM_LIBS_DIR}")
 
 # ---------------------------------------------------------------------------
 # Targets
@@ -88,8 +98,17 @@ set(SOURCES
     ${PROJECT_SOURCE_DIR}/src/main/main.cpp
     ${PROJECT_SOURCE_DIR}/src/utils/utils.cpp
     ${PROJECT_SOURCE_DIR}/src/utils/ConfigManager.cpp
-    ${PROJECT_SOURCE_DIR}/src/deepstream/DeepStreamPipeline.cpp
 )
+
+if(DEEPSTREAM_FOUND)
+    list(APPEND SOURCES
+        ${PROJECT_SOURCE_DIR}/src/deepstream/DeepStreamPipeline.cpp
+    )
+else()
+    list(APPEND SOURCES
+        ${PROJECT_SOURCE_DIR}/src/deepstream/DeepStreamPipelineStub.cpp
+    )
+endif()
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
@@ -107,14 +126,34 @@ target_include_directories(${PROJECT_NAME}
         ${CUDA_INCLUDE_DIRS}
         ${GSTREAMER_INCLUDE_DIRS}
         ${GLIB_INCLUDE_DIRS}
-        ${DEEPSTREAM_INC_DIR}
 )
+
+if(DEEPSTREAM_FOUND)
+    target_include_directories(${PROJECT_NAME}
+        PRIVATE
+            ${DEEPSTREAM_INC_DIR}
+    )
+endif()
+
+set(CUDA_TARGET_LIB_DIRS "")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+    list(APPEND CUDA_TARGET_LIB_DIRS "${CUDA_TOOLKIT_ROOT_DIR}/targets/aarch64-linux/lib")
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$")
+    list(APPEND CUDA_TARGET_LIB_DIRS "${CUDA_TOOLKIT_ROOT_DIR}/targets/x86_64-linux/lib")
+endif()
+list(FILTER CUDA_TARGET_LIB_DIRS INCLUDE REGEX ".+")
 
 target_link_directories(${PROJECT_NAME}
     PRIVATE
-        ${DEEPSTREAM_LIBS_DIR}
-        /usr/local/cuda/targets/x86_64-linux/lib
+        ${CUDA_TARGET_LIB_DIRS}
 )
+
+if(DEEPSTREAM_FOUND)
+    target_link_directories(${PROJECT_NAME}
+        PRIVATE
+            ${DEEPSTREAM_LIBS_DIR}
+    )
+endif()
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
@@ -123,18 +162,29 @@ target_link_libraries(${PROJECT_NAME}
         ${CUDA_LIBRARIES}
         ${GSTREAMER_LIBRARIES}
         ${GLIB_LIBRARIES}
-        nvdsgst_meta
-        nvds_meta
-        nvdsgst_helper
-        nvdsgst_smartrecord
-        nvds_utils
-        nvds_msgbroker
-        nvbufsurface
-        nvbufsurftransform
         cuda
         cudart
         pthread
         dl
+)
+
+if(DEEPSTREAM_FOUND)
+    target_link_libraries(${PROJECT_NAME}
+        PRIVATE
+            nvdsgst_meta
+            nvds_meta
+            nvdsgst_helper
+            nvdsgst_smartrecord
+            nvds_utils
+            nvds_msgbroker
+            nvbufsurface
+            nvbufsurftransform
+    )
+endif()
+
+target_compile_definitions(${PROJECT_NAME}
+    PRIVATE
+        HAVE_DEEPSTREAM=$<BOOL:${DEEPSTREAM_FOUND}>
 )
 
 target_compile_options(${PROJECT_NAME}

@@ -10,13 +10,25 @@
 #include <optional>
 #include <stdexcept>
 
+#ifndef HAVE_DEEPSTREAM
+#define HAVE_DEEPSTREAM 0
+#endif
+
 // DeepStream headers
 #include <gst/gst.h>
 #include <glib.h>
+#if HAVE_DEEPSTREAM
 #include "gstnvdsmeta.h"
 #include "nvds_analytics_meta.h"
 #include "nvbufsurface.h"
 #include "nvbufsurftransform.h"
+#else
+struct NvDsBatchMeta;
+struct NvDsFrameMeta;
+struct NvDsMetaList;
+struct NvDsObjectMeta;
+struct NvBufSurface;
+#endif
 
 // Vision Core
 #include <vision-core/core/result_types.hpp>

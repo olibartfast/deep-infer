@@ -1,6 +1,12 @@
 {
   "name": "DeepStream Inference Lab",
-  "image": "nvcr.io/nvidia/deepstream:8.0-gc-triton-devel",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "..",
+    "args": {
+      "DEEPSTREAM_VERSION": "7.1"
+    }
+  },
 
   "runArgs": [
     "--gpus", "all",
@@ -29,12 +35,12 @@
         "cmake.buildDirectory": "${workspaceFolder}/build",
         "cmake.configureArgs": [
           "-DCMAKE_BUILD_TYPE=Debug",
-          "-DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-8.0"
+          "-DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-7.1"
         ],
         "C_Cpp.default.includePath": [
           "${workspaceFolder}/include",
           "${workspaceFolder}/src",
-          "/opt/nvidia/deepstream/deepstream-8.0/sources/includes",
+          "/opt/nvidia/deepstream/deepstream-7.1/sources/includes",
           "/usr/local/cuda/include"
         ]
       }
