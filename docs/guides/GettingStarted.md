@@ -338,7 +338,7 @@ sudo apt-get install --reinstall libflac8 libmp3lame0 libxvidcore4 ffmpeg
 - Use a smaller model
 - Enable FP16 mode
 
-## Next Steps
+## TODO Next Steps 
 
 - [Model Deployment Guide](ModelDeployment.md)
 - [DeepStream Configuration Reference](DeepStreamConfig.md)
