@@ -6,19 +6,6 @@
 
 A C++ application for computer vision tasks (object detection, classification, instance segmentation, optical flow) using NVIDIA DeepStream SDK. DeepStream provides a complete streaming analytics toolkit for AI-based video and image understanding with optimized performance on NVIDIA GPUs.
 
-## Table of Contents
-- [Overview](#overview)
-- [Key Differences from Triton](#key-differences-from-triton)
-- [Project Structure](#project-structure)
-- [Tested Models](#tested-models)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Running Inference](#running-inference)
-- [Docker Support](#docker-support)
-- [Performance Tips](#performance-tips)
-- [Troubleshooting](#troubleshooting)
-- [References](#references)
 
 ## Overview
 
@@ -34,34 +21,6 @@ DeepStream SDK is NVIDIA's complete streaming analytics toolkit for AI-based mul
 - **Low Latency**: Optimized for real-time video analytics
 - **GPU Acceleration**: Full GPU pipeline from decode to inference to rendering
 
-## Key Differences from Triton
-
-While both DeepStream and Triton Server are NVIDIA inference solutions, they serve different purposes:
-
-| Feature | DeepStream | Triton Server |
-|---------|------------|---------------|
-| **Primary Use Case** | Video streaming analytics | Model serving (any data type) |
-| **Pipeline** | GStreamer-based | Request/Response based |
-| **Video Decode** | Hardware-accelerated (NVDEC) | Not included |
-| **Tracker** | Built-in multi-object tracker | Not included |
-| **Analytics** | Spatial analytics, line crossing, etc. | Not included |
-| **Best For** | Video surveillance, smart cities, traffic | ML model deployment, microservices |
-| **Client Type** | GStreamer pipeline | HTTP/gRPC clients |
-| **Throughput** | Optimized for video streams | Optimized for batch inference |
-
-**When to use DeepStream:**
-- Processing video streams (RTSP, files, cameras)
-- Real-time video analytics applications
-- Need tracking across frames
-- Require spatial analytics (line crossing, ROI)
-- Want end-to-end GPU pipeline
-
-**When to use Triton:**
-- General purpose model serving
-- Non-video inference workloads
-- Microservices architecture
-- Need framework flexibility (TensorFlow, PyTorch, ONNX, etc.)
-- REST/gRPC API requirements
 ## Models
 
 Supported models are provided by the [vision-core](https://github.com/olibartfast/vision-core) library, which is automatically fetched at build time. Please refer to that repository for the full and up-to-date list of supported architectures.
