@@ -5,7 +5,6 @@ This file is persistent repository memory for AI coding agents. Read it before m
 ## Scope
 
 - Applies to the whole repository.
-- `CLAUDE.md` mirrors this file. If you update one, update the other in the same change.
 
 ## Project memory
 
