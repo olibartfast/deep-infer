@@ -31,12 +31,12 @@ struct NvBufSurface;
 #endif
 
 // Vision Core
-#include <vision-core/core/result_types.hpp>
+#include <neuriplo/tasks/core/result_types.hpp>
 
 // Common structures
 struct AppResult {
     cv::Mat frame;
-    std::vector<vision_core::Result> results;
+    std::vector<neuriplo_tasks::Result> results;
 };
 
 enum class TaskType {

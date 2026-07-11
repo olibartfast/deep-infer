@@ -45,7 +45,7 @@ int main(int argc, const char* argv[]) {
             // Process results here
             size_t detection_count = 0;
             for (const auto& res : result.results) {
-                if (std::holds_alternative<vision_core::Detection>(res)) {
+                if (std::holds_alternative<neuriplo_tasks::Detection>(res)) {
                     detection_count++;
                 }
             }
