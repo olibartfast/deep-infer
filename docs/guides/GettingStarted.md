@@ -372,7 +372,7 @@ sudo apt-get install --reinstall libflac8 libmp3lame0 libxvidcore4 ffmpeg
 - [x] 3. Update README, AGENTS.md, Dockerfile for JetPack 7.2 era
 - [x] 4. Install DeepStream 9.0 SDK (`deepstream-9.0_9.0.0-1_arm64.deb` from NGC)
 - [x] 5. Rebuild with `-DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.0`
-- [ ] 6. End-to-end inference test on Jetson (video + model)
+- [x] 6. End-to-end inference test on Jetson (video + model)
 - [x] 7. Update GettingStarted guide: DS 8.0 → 9.0 paths and Docker references
 - [ ] 8. Verify Docker container flow with `nvcr.io/nvidia/deepstream:9.0-triton-multiarch`
 
