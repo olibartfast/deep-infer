@@ -374,7 +374,7 @@ sudo apt-get install --reinstall libflac8 libmp3lame0 libxvidcore4 ffmpeg
 - [x] 5. Rebuild with `-DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.0`
 - [x] 6. End-to-end inference test on Jetson (video + model)
 - [x] 7. Update GettingStarted guide: DS 8.0 → 9.0 paths and Docker references
-- [ ] 8. Verify Docker container flow with `nvcr.io/nvidia/deepstream:9.0-triton-multiarch`
+- [x] 8. Verify Docker container flow with `nvcr.io/nvidia/deepstream:9.0-triton-multiarch`
 
 ## Future Guides
 
