@@ -14,6 +14,8 @@ This guide will help you get started with DeepStream Inference Lab using DeepStr
 
 ### 1. Install Prerequisites
 
+#### x86_64 (DeepStream 8.0)
+
 ```bash
 # Install DeepStream SDK 8.0 (deb method)
 # Download deepstream-8.0_8.0.0-1_amd64.deb from NGC:
@@ -25,7 +27,19 @@ sudo tar -xvf deepstream_sdk_v8.0.0_x86_64.tbz2 -C /
 cd /opt/nvidia/deepstream/deepstream-8.0/
 sudo ./install.sh
 sudo ldconfig
+```
 
+#### Jetson Orin JetPack 7.x (DeepStream 9.0)
+
+```bash
+# Download deepstream-9.0_9.0.0-1_arm64.deb from NGC
+sudo apt-get install ./deepstream-9.0_9.0.0-1_arm64.deb
+
+# Fix missing RTSP server lib if needed
+sudo apt-get install -y libgstrtspserver-1.0-0
+```
+
+```bash
 # Install dependencies
 sudo apt update
 sudo apt install -y \
@@ -47,9 +61,14 @@ git clone https://github.com/olibartfast/deepstream-infer-lab.git
 cd deepstream-infer-lab
 mkdir build && cd build
 
-# DS 8.0 uses a versioned directory. Pass it explicitly if auto-detection fails.
+# x86_64 with DS 8.0:
 cmake -DCMAKE_BUILD_TYPE=Release -GNinja \
       -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-8.0 ..
+
+# Jetson with DS 9.0:
+cmake -DCMAKE_BUILD_TYPE=Release -GNinja \
+      -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.0 ..
+
 ninja
 ```
 
@@ -136,7 +155,7 @@ pre-cluster-threshold=0.25
 
 ## Docker Usage
 
-The project supports host-specific DeepStream container profiles. On Jetson Orin devices running JetPack 6.x / L4T 36.4.x, the default tested profile is **`7.1-samples-multiarch`**. On x86_64, the default profile remains **`8.0-gc-triton-devel`**.
+The project supports host-specific DeepStream container profiles. On Jetson Orin devices running JetPack 7.x / L4T R39.x, the default tested profile is **`9.0-triton-multiarch`**. On Jetson Orin devices running JetPack 6.x / L4T 36.4.x, the default tested profile is **`7.1-samples-multiarch`**. On x86_64, the default profile remains **`8.0-gc-triton-devel`**.
 
 ### Jetson Orin Nano: Docker prerequisites
 
@@ -165,14 +184,14 @@ cat /etc/nv_tegra_release
 
 Use the matching DeepStream generation for Jetson:
 
+- JetPack 7.x / L4T R39.x / Ubuntu 24.04 -> DeepStream 9.0
 - JetPack 6.x / L4T 36.x / Ubuntu 22.04 -> DeepStream 7.1
-- JetPack 7.0 / L4T 38.2 -> DeepStream 8.0
-- JetPack 7.1 / L4T 38.4 / Ubuntu 24.04 -> DeepStream 9.0
 
 ### Pull the matching base image
 
 ```bash
-docker pull nvcr.io/nvidia/deepstream:7.1-samples-multiarch   # Jetson Orin / JetPack 6.x
+docker pull nvcr.io/nvidia/deepstream:9.0-triton-multiarch     # Jetson Orin / JetPack 7.x
+docker pull nvcr.io/nvidia/deepstream:7.1-samples-multiarch    # Jetson Orin / JetPack 6.x
 docker pull nvcr.io/nvidia/deepstream:8.0-gc-triton-devel
 ```
 
@@ -182,10 +201,7 @@ docker pull nvcr.io/nvidia/deepstream:8.0-gc-triton-devel
 ./scripts/docker/build_docker.sh
 ```
 
-The script auto-selects a Docker target profile from the current host and pulls
-the matching upstream NGC DeepStream image. On Jetson Orin devices running
-JetPack 6.x / L4T 36.x it resolves to `jetson-ds7.1`; on x86_64 it resolves to
-`x86-ds8.0`.
+The script auto-selects a Docker target profile from the current host and pulls\nthe matching upstream NGC DeepStream image. On Jetson Orin devices running\nJetPack 7.x / L4T R39.x it resolves to `jetson-ds9.0`; on JetPack 6.x / L4T 36.x\nit resolves to `jetson-ds7.1`; on x86_64 it resolves to `x86-ds8.0`.
 
 To inspect or override the selection:
 
@@ -202,6 +218,16 @@ To inspect or override the selection:
 
 ```bash
 xhost +
+# JetPack 7.x / DS 9.0:
+docker run -it --entrypoint /bin/bash \
+    --gpus all --rm --network=host --privileged \
+    -e DISPLAY=${DISPLAY} \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v ${PWD}:/workspace/deepstream-infer-lab \
+    -w /workspace/deepstream-infer-lab \
+    nvcr.io/nvidia/deepstream:9.0-triton-multiarch
+
+# JetPack 6.x / DS 7.1:
 docker run -it --entrypoint /bin/bash \
     --gpus all --rm --network=host --privileged \
     -e DISPLAY=${DISPLAY} \
@@ -223,13 +249,14 @@ chmod +x scripts/docker/build_docker.sh \
          scripts/docker/run_rtsp_stream.sh
 
 # Then pull the matching runtime image:
-./scripts/docker/build_docker.sh jetson-ds7.1
+./scripts/docker/build_docker.sh jetson-ds9.0   # JetPack 7.x
+# or: ./scripts/docker/build_docker.sh jetson-ds7.1  # JetPack 6.x
 
 # Build inside the mounted NGC container:
-./scripts/docker/build_in_container.sh jetson-ds7.1
+./scripts/docker/build_in_container.sh jetson-ds9.0
 
 # Helper script:
-./scripts/docker/run_yolo_detection.sh jetson-ds7.1
+./scripts/docker/run_yolo_detection.sh jetson-ds9.0
 
 # Equivalent direct docker run:
 docker run --rm --gpus all --privileged --network host --ipc=host \
@@ -239,7 +266,7 @@ docker run --rm --gpus all --privileged --network host --ipc=host \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -v ${PWD}:/workspace/deepstream-infer-lab \
     -w /workspace/deepstream-infer-lab \
-    nvcr.io/nvidia/deepstream:7.1-samples-multiarch \
+    nvcr.io/nvidia/deepstream:9.0-triton-multiarch \
     /workspace/deepstream-infer-lab/build/deepstream-infer-lab \
       --source=/workspace/deepstream-infer-lab/data/videos/sample.mp4 \
       --config=/workspace/deepstream-infer-lab/configs/yolov8_config.txt \
@@ -300,7 +327,7 @@ gst-inspect-1.0 nvstreammux
 deepstream-app --version
 
 # If missing, re-run the DS install script
-sudo /opt/nvidia/deepstream/deepstream-8.0/install.sh
+sudo /opt/nvidia/deepstream/deepstream-9.0/install.sh
 ```
 
 ### Issue: `permission denied while trying to connect to the docker API`
@@ -346,7 +373,7 @@ sudo apt-get install --reinstall libflac8 libmp3lame0 libxvidcore4 ffmpeg
 - [x] 4. Install DeepStream 9.0 SDK (`deepstream-9.0_9.0.0-1_arm64.deb` from NGC)
 - [x] 5. Rebuild with `-DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.0`
 - [ ] 6. End-to-end inference test on Jetson (video + model)
-- [ ] 7. Update GettingStarted guide: DS 8.0 → 9.0 paths and Docker references
+- [x] 7. Update GettingStarted guide: DS 8.0 → 9.0 paths and Docker references
 - [ ] 8. Verify Docker container flow with `nvcr.io/nvidia/deepstream:9.0-triton-multiarch`
 
 ## Future Guides
