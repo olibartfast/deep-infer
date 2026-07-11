@@ -368,12 +368,12 @@ GstPadProbeReturn DeepStreamPipeline::OsdSinkPadBufferProbe(
              object_node = object_node->next) {
             auto* object_meta = static_cast<NvDsObjectMeta*>(object_node->data);
 
-            vision_core::Detection detection;
-            detection.bbox = cv::Rect2f(
-                object_meta->rect_params.left,
-                object_meta->rect_params.top,
-                object_meta->rect_params.width,
-                object_meta->rect_params.height);
+            neuriplo_tasks::Detection detection;
+            detection.bbox = neuriplo_tasks::vision::Rect(
+                static_cast<int>(object_meta->rect_params.left),
+                static_cast<int>(object_meta->rect_params.top),
+                static_cast<int>(object_meta->rect_params.width),
+                static_cast<int>(object_meta->rect_params.height));
             detection.class_confidence = object_meta->confidence;
             detection.class_id = object_meta->class_id;
             result.results.push_back(detection);
