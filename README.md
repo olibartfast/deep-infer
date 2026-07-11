@@ -36,6 +36,12 @@ Supported models are provided by the [vision-core](https://github.com/olibartfas
 - CUDA **>= 12.8**
 - TensorRT **>= 10.9.0.34**
 
+#### For Jetson Orin with JetPack 7.x
+- JetPack 7.2 (L4T R39.2) or later
+- NVIDIA Orin series GPU (Orin Nano, Orin NX, or AGX Orin)
+- CUDA **13.2** (included with JetPack 7.2)
+- TensorRT **11.0** (included with JetPack 7.2)
+
 #### For Jetson Orin with JetPack 6.x
 - JetPack 6.2 (L4T 36.4.x) or later
 - NVIDIA Orin series GPU (Orin Nano, Orin NX, or AGX Orin)
@@ -57,6 +63,17 @@ sudo tar -xvf deepstream_sdk_v8.0.0_x86_64.tbz2 -C /
 cd /opt/nvidia/deepstream/deepstream-8.0
 sudo ./install.sh
 sudo ldconfig
+```
+
+##### For Jetson Orin with JetPack 7.x (DeepStream 9.0):
+```bash
+# Download deepstream-9.0_9.0.0-1_arm64.deb from NVIDIA NGC:
+# https://catalog.ngc.nvidia.com/orgs/nvidia/resources/deepstream
+sudo apt-get install ./deepstream-9.0_9.0.0-1_arm64.deb
+
+# Verify
+ls /opt/nvidia/deepstream/deepstream-9.0/
+deepstream-app --version
 ```
 
 ##### For Jetson Orin with JetPack 6.x (DeepStream 7.1):
@@ -135,6 +152,13 @@ mkdir build && cd build
    # DS 8.0 uses a versioned install directory — pass it explicitly:
    cmake -DCMAKE_BUILD_TYPE=Release -GNinja \
          -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-8.0 ..
+   ```
+   
+   #### For Jetson Orin with JetPack 7.x (DeepStream 9.0):
+   ```bash
+   # DS 9.0 uses a versioned install directory — pass it explicitly:
+   cmake -DCMAKE_BUILD_TYPE=Release -GNinja \
+         -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.0 ..
    ```
    
    #### For Jetson Orin with JetPack 6.x (DeepStream 7.1):
@@ -255,7 +279,7 @@ See `configs/` directory for examples.
 
 ## Docker Support
 
-This repository supports multiple DeepStream container profiles. On Jetson Orin devices running JetPack 6.x / L4T 36.4.x, the default tested profile is `nvcr.io/nvidia/deepstream:7.1-samples-multiarch`. On x86_64 hosts, the default profile remains `nvcr.io/nvidia/deepstream:8.0-gc-triton-devel`.
+This repository supports multiple DeepStream container profiles. On Jetson Orin devices running JetPack 7.x / L4T R39.x, the default tested profile is `nvcr.io/nvidia/deepstream:9.0-triton-multiarch`. On Jetson Orin devices running JetPack 6.x / L4T 36.4.x, the default tested profile is `nvcr.io/nvidia/deepstream:7.1-samples-multiarch`. On x86_64 hosts, the default profile remains `nvcr.io/nvidia/deepstream:8.0-gc-triton-devel`.
 
 ### Jetson Orin Nano: install Docker and NVIDIA runtime
 
@@ -294,8 +318,8 @@ cat /etc/nv_tegra_release
 
 For Jetson compatibility, match DeepStream to JetPack/L4T:
 
+- L4T R39.x / Ubuntu 24.04 / JetPack 7.x: use DeepStream 9.0 on Jetson
 - L4T 36.x / Ubuntu 22.04 / JetPack 6.x: use DeepStream 7.1 on Jetson
-- L4T 38.2 / JetPack 7.0: use DeepStream 8.0
 - L4T 38.4 / Ubuntu 24.04 / JetPack 7.1: use DeepStream 9.0
 
 So a Jetson Orin Nano still on Ubuntu 22.04 should not target the DeepStream 9.0 Jetson container yet; upgrade to JetPack 7.1 first if you want `nvcr.io/nvidia/deepstream:9.0-triton-multiarch`.
@@ -308,7 +332,8 @@ So a Jetson Orin Nano still on Ubuntu 22.04 should not target the DeepStream 9.0
 
 `build_docker.sh` now resolves a target profile automatically from the current host and pulls the matching upstream NGC image:
 
-- `jetson-ds7.1` for Jetson devices on the current L4T 36.4.x / JetPack 6.x generation, using `7.1-samples-multiarch`
+- `jetson-ds9.0` for Jetson devices on L4T R39.x / JetPack 7.x, using `9.0-triton-multiarch`
+- `jetson-ds7.1` for Jetson devices on L4T 36.4.x / JetPack 6.x, using `7.1-samples-multiarch`
 - `x86-ds8.0` for x86_64 hosts by default
 
 You can also force a specific profile:

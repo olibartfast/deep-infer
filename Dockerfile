@@ -1,6 +1,6 @@
-# Production Dockerfile for DeepStream Inference Lab
-# Build: docker build --rm -t deepstream-infer-lab .
-# Run: docker run --rm --gpus all deepstream-infer-lab [args]
+# Sample build commands:
+#   x86_64:  docker build --build-arg BASE_IMAGE=nvcr.io/nvidia/deepstream:8.0-gc-triton-devel -t deepstream-infer-lab .
+#   Jetson:  docker build --build-arg BASE_IMAGE=nvcr.io/nvidia/deepstream:9.0-triton-multiarch --build-arg DEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.0 -t deepstream-infer-lab .
 
 ARG BASE_IMAGE=nvcr.io/nvidia/deepstream:8.0-gc-triton-devel
 FROM ${BASE_IMAGE}

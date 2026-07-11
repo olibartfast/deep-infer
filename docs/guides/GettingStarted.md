@@ -338,7 +338,18 @@ sudo apt-get install --reinstall libflac8 libmp3lame0 libxvidcore4 ffmpeg
 - Use a smaller model
 - Enable FP16 mode
 
-## TODO Next Steps 
+## TODO — JetPack 7.2 / DeepStream 9.0 Migration
+
+- [x] 1. Update CMake search paths for `deepstream-9.0`
+- [x] 2. Update `detect_target_profile()` for L4T R39 → `jetson-ds9.0`
+- [x] 3. Update README, AGENTS.md, Dockerfile for JetPack 7.2 era
+- [ ] 4. Install DeepStream 9.0 SDK (`deepstream-9.0_9.0.0-1_arm64.deb` from NGC)
+- [ ] 5. Rebuild with `-DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.0`
+- [ ] 6. End-to-end inference test on Jetson (video + model)
+- [ ] 7. Update GettingStarted guide: DS 8.0 → 9.0 paths and Docker references
+- [ ] 8. Verify Docker container flow with `nvcr.io/nvidia/deepstream:9.0-triton-multiarch`
+
+## Future Guides
 
 - [Model Deployment Guide](ModelDeployment.md)
 - [DeepStream Configuration Reference](DeepStreamConfig.md)

@@ -59,6 +59,7 @@ if(DEFINED DEEPSTREAM_DIR AND NOT DEEPSTREAM_DIR STREQUAL "")
 endif()
 
 list(APPEND DEEPSTREAM_SEARCH_DIRS
+    "/opt/nvidia/deepstream/deepstream-9.0"
     "/opt/nvidia/deepstream/deepstream-8.0"
     "/opt/nvidia/deepstream/deepstream-7.1"
     "/opt/nvidia/deepstream/deepstream-7.0"
@@ -137,7 +138,13 @@ endif()
 
 set(CUDA_TARGET_LIB_DIRS "")
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
-    list(APPEND CUDA_TARGET_LIB_DIRS "${CUDA_TOOLKIT_ROOT_DIR}/targets/aarch64-linux/lib")
+    # Jetson Orin uses SBSA-compatible ARM; fall back to generic aarch64 if missing
+    if(EXISTS "${CUDA_TOOLKIT_ROOT_DIR}/targets/sbsa-linux/lib")
+        list(APPEND CUDA_TARGET_LIB_DIRS "${CUDA_TOOLKIT_ROOT_DIR}/targets/sbsa-linux/lib")
+    endif()
+    if(EXISTS "${CUDA_TOOLKIT_ROOT_DIR}/targets/aarch64-linux/lib")
+        list(APPEND CUDA_TARGET_LIB_DIRS "${CUDA_TOOLKIT_ROOT_DIR}/targets/aarch64-linux/lib")
+    endif()
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$")
     list(APPEND CUDA_TARGET_LIB_DIRS "${CUDA_TOOLKIT_ROOT_DIR}/targets/x86_64-linux/lib")
 endif()
@@ -157,7 +164,7 @@ endif()
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
-        vision-core::vision-core
+        neuriplo-tasks
         ${OpenCV_LIBS}
         ${CUDA_LIBRARIES}
         ${GSTREAMER_LIBRARIES}

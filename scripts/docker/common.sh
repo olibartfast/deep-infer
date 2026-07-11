@@ -11,6 +11,12 @@ detect_target_profile() {
     arch="$(uname -m)"
 
     if [[ "${arch}" == "aarch64" && -r /etc/nv_tegra_release ]]; then
+        # L4T R39.x → JetPack 7.x → DeepStream 9.0
+        if grep -q 'R39' /etc/nv_tegra_release 2>/dev/null; then
+            echo "jetson-ds9.0"
+            return 0
+        fi
+        # Older L4T → JetPack 6.x → DeepStream 7.1
         echo "jetson-ds7.1"
         return 0
     fi

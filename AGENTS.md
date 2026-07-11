@@ -24,5 +24,5 @@ This file is persistent repository memory for AI coding agents. Read it before m
 ## Useful commands
 
 - Configure: `cmake -S . -B build -GNinja`
-- Configure with an explicit DeepStream install: `cmake -S . -B build -GNinja -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-8.0`
+- Configure with an explicit DeepStream install: `cmake -S . -B build -GNinja -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.0`
 - Build: `cmake --build build`
