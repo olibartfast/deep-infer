@@ -103,7 +103,7 @@ print_target_summary() {
 
 require_local_binary() {
     local root_dir="${1}"
-    local binary_path="${root_dir}/build/deepstream-infer-lab"
+    local binary_path="${root_dir}/build/deep-infer"
 
     if [[ ! -x "${binary_path}" ]]; then
         echo "Local executable not found: ${binary_path}" >&2

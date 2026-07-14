@@ -139,12 +139,12 @@ the full-pipeline path and don't break the stub build.
 | DeepStream .deb | `/mnt/sdcard/deepstream-9.0_9.0.0-1_arm64.deb` (617 MB) |
 | RF-DETR weights | `~/.roboflow/models/rf-detr-medium.pth` (386 MB) |
 | DeepStream SDK | `/opt/nvidia/deepstream/deepstream-9.0/` |
-| Built binary | `build/deepstream-infer-lab` |
+| Built binary | `build/deep-infer` |
 
 ## Verification Checklist
 
 - [ ] `deepstream-app --version` → 9.0.0
 - [ ] `cmake -S . -B build -GNinja -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.0` succeeds
 - [ ] `cmake --build build` → 57/57 targets, zero errors
-- [ ] `ldd build/deepstream-infer-lab | grep deepstream-9.0` shows at least 2 libs
-- [ ] `build/deepstream-infer-lab --help` prints usage
+- [ ] `ldd build/deep-infer | grep deepstream-9.0` shows at least 2 libs
+- [ ] `build/deep-infer --help` prints usage

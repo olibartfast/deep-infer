@@ -13,7 +13,7 @@ int main(int argc, const char* argv[]) {
     Logger& logger = Logger::GetInstance();
     
     try {
-        logger.Info("=== DeepStream Inference Lab ===");
+        logger.Info("=== Deep Infer ===");
         logger.Info("Starting application...");
         
         // Parse command line arguments

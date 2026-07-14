@@ -1,5 +1,5 @@
-#ifndef DEEPSTREAM_INFER_LAB_INCLUDE_UTILS_HPP_
-#define DEEPSTREAM_INFER_LAB_INCLUDE_UTILS_HPP_
+#ifndef DEEP_INFER_INCLUDE_UTILS_HPP_
+#define DEEP_INFER_INCLUDE_UTILS_HPP_
 
 #include <string>
 #include <vector>
@@ -14,4 +14,4 @@ void DrawLabel(cv::Mat& input_image, const std::string& label,
                float confidence, int left, int top);
 cv::Mat Nv12ToBgr(void* data, int width, int height);
 
-#endif  // DEEPSTREAM_INFER_LAB_INCLUDE_UTILS_HPP_
+#endif  // DEEP_INFER_INCLUDE_UTILS_HPP_

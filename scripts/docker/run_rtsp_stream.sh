@@ -30,16 +30,16 @@ docker run --rm \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
   -e DISPLAY=${DISPLAY:-:0} \
   -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,video,graphics \
-  -v "${ROOT_DIR}:/workspace/deepstream-infer-lab" \
-  -w /workspace/deepstream-infer-lab \
+  -v "${ROOT_DIR}:/workspace/deep-infer" \
+  -w /workspace/deep-infer \
   "${IMAGE_NAME}" \
   /bin/bash -lc "
     ${RUNTIME_SETUP} &&
-    exec /workspace/deepstream-infer-lab/build/deepstream-infer-lab \
+    exec /workspace/deep-infer/build/deep-infer \
       --source='${RTSP_URL}' \
-      --config=/workspace/deepstream-infer-lab/configs/yolov8_config.txt \
+      --config=/workspace/deep-infer/configs/yolov8_config.txt \
       --model_type=yolov8 \
-      --labels=/workspace/deepstream-infer-lab/data/labels/coco.names \
+      --labels=/workspace/deep-infer/data/labels/coco.names \
       --tracker \
       --show \
       --verbose

@@ -1,5 +1,5 @@
-#ifndef DEEPSTREAM_INFER_LAB_INCLUDE_COMMON_HPP_
-#define DEEPSTREAM_INFER_LAB_INCLUDE_COMMON_HPP_
+#ifndef DEEP_INFER_INCLUDE_COMMON_HPP_
+#define DEEP_INFER_INCLUDE_COMMON_HPP_
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/cuda.hpp>
@@ -65,4 +65,4 @@ public:
         : std::runtime_error("Input Dimension Error: " + message) {}
 };
 
-#endif  // DEEPSTREAM_INFER_LAB_INCLUDE_COMMON_HPP_
+#endif  // DEEP_INFER_INCLUDE_COMMON_HPP_

@@ -2,7 +2,7 @@
 
 ## Quick Start
 
-This guide will help you get started with DeepStream Inference Lab using DeepStream 8.0.
+This guide will help you get started with Deep Infer using DeepStream 8.0.
 
 ### Prerequisites
 
@@ -57,8 +57,8 @@ sudo apt-get install --reinstall libflac8 libmp3lame0 libxvidcore4 ffmpeg
 ### 2. Build the Project
 
 ```bash
-git clone https://github.com/olibartfast/deepstream-infer-lab.git
-cd deepstream-infer-lab
+git clone https://github.com/olibartfast/deep-infer.git
+cd deep-infer
 mkdir build && cd build
 
 # x86_64 with DS 8.0:
@@ -112,7 +112,7 @@ pre-cluster-threshold=0.25
 ### 5. Run Inference
 
 ```bash
-./build/deepstream-infer-lab \
+./build/deep-infer \
     --source=../data/videos/sample.mp4 \
     --config=../configs/yolov8_config.txt \
     --model_type=yolov8 \
@@ -125,7 +125,7 @@ pre-cluster-threshold=0.25
 ### Video File Processing
 
 ```bash
-./build/deepstream-infer-lab \
+./build/deep-infer \
     -s /path/to/video.mp4 \
     -c configs/yolov8_config.txt \
     -mt yolov8 \
@@ -135,7 +135,7 @@ pre-cluster-threshold=0.25
 ### RTSP Stream
 
 ```bash
-./build/deepstream-infer-lab \
+./build/deep-infer \
     -s rtsp://192.168.1.100:8554/stream \
     -c configs/yolov8_config.txt \
     -mt yolov8 \
@@ -146,7 +146,7 @@ pre-cluster-threshold=0.25
 ### USB Camera
 
 ```bash
-./build/deepstream-infer-lab \
+./build/deep-infer \
     -s /dev/video0 \
     -c configs/yolov8_config.txt \
     -mt yolov8 \
@@ -223,8 +223,8 @@ docker run -it --entrypoint /bin/bash \
     --gpus all --rm --network=host --privileged \
     -e DISPLAY=${DISPLAY} \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -v ${PWD}:/workspace/deepstream-infer-lab \
-    -w /workspace/deepstream-infer-lab \
+    -v ${PWD}:/workspace/deep-infer \
+    -w /workspace/deep-infer \
     nvcr.io/nvidia/deepstream:9.0-triton-multiarch
 
 # JetPack 6.x / DS 7.1:
@@ -232,8 +232,8 @@ docker run -it --entrypoint /bin/bash \
     --gpus all --rm --network=host --privileged \
     -e DISPLAY=${DISPLAY} \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -v ${PWD}:/workspace/deepstream-infer-lab \
-    -w /workspace/deepstream-infer-lab \
+    -v ${PWD}:/workspace/deep-infer \
+    -w /workspace/deep-infer \
     nvcr.io/nvidia/deepstream:7.1-samples-multiarch
 ```
 
@@ -264,12 +264,12 @@ docker run --rm --gpus all --privileged --network host --ipc=host \
     -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,video,graphics \
     -e DISPLAY=${DISPLAY:-:0} \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -v ${PWD}:/workspace/deepstream-infer-lab \
-    -w /workspace/deepstream-infer-lab \
+    -v ${PWD}:/workspace/deep-infer \
+    -w /workspace/deep-infer \
     nvcr.io/nvidia/deepstream:9.0-triton-multiarch \
-    /workspace/deepstream-infer-lab/build/deepstream-infer-lab \
-      --source=/workspace/deepstream-infer-lab/data/videos/sample.mp4 \
-      --config=/workspace/deepstream-infer-lab/configs/yolov8_config.txt \
+    /workspace/deep-infer/build/deep-infer \
+      --source=/workspace/deep-infer/data/videos/sample.mp4 \
+      --config=/workspace/deep-infer/configs/yolov8_config.txt \
       --model_type=yolov8
 ```
 

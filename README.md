@@ -1,6 +1,6 @@
-![DeepStream Inference Lab](docs/assets/deepstream-banner.svg)
+![Deep Infer](docs/assets/deepstream-banner.svg)
 
-# DeepStream Inference Lab
+# Deep Infer
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -87,8 +87,8 @@ The expected SDK path is `/opt/nvidia/deepstream/deepstream-9.0`. Pass
 ## Build
 
 ```bash
-git clone https://github.com/olibartfast/deepstream-infer-lab.git
-cd deepstream-infer-lab
+git clone https://github.com/olibartfast/deep-infer.git
+cd deep-infer
 
 cmake -S . -B build -GNinja \
     -DCMAKE_BUILD_TYPE=Release \
@@ -150,7 +150,7 @@ one from a different platform.
 ## Run
 
 ```bash
-./build/deepstream-infer-lab \
+./build/deep-infer \
     --source /path/to/video.mp4 \
     --config configs/yolov8_config.txt \
     --model_type yolov8 \
@@ -162,7 +162,7 @@ one from a different platform.
 RTSP input with tracking:
 
 ```bash
-./build/deepstream-infer-lab \
+./build/deep-infer \
     --source rtsp://camera-ip:8554/stream \
     --config configs/yolov8_config.txt \
     --model_type yolov8 \

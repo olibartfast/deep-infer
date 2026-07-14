@@ -39,4 +39,4 @@ jobs:
         run: cmake --build build --parallel
 
       - name: Smoke test
-        run: ./build/deepstream-infer-lab --help
+        run: ./build/deep-infer --help
