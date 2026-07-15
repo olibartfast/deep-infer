@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build deepstream-infer-lab inside the upstream NGC container with the repo mounted from the host.
+# Build deep-infer inside the upstream NGC container with the repo mounted from the host.
 # Usage: ./build_in_container.sh [auto|jetson-ds7.0|jetson-ds7.1|x86-ds8.0|x86-ds9.0|jetson-ds9.0]
 
 set -euo pipefail
@@ -22,8 +22,8 @@ docker run --rm -it \
   --ulimit memlock=-1 \
   --ulimit stack=67108864 \
   -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,video,graphics \
-  -v "${ROOT_DIR}:/workspace/deepstream-infer-lab" \
-  -w /workspace/deepstream-infer-lab \
+  -v "${ROOT_DIR}:/workspace/deep-infer" \
+  -w /workspace/deep-infer \
   "${IMAGE_NAME}" \
   /bin/bash -lc "
     apt-get update &&

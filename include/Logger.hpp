@@ -1,5 +1,5 @@
-#ifndef DEEPSTREAM_INFER_LAB_INCLUDE_LOGGER_HPP_
-#define DEEPSTREAM_INFER_LAB_INCLUDE_LOGGER_HPP_
+#ifndef DEEP_INFER_INCLUDE_LOGGER_HPP_
+#define DEEP_INFER_INCLUDE_LOGGER_HPP_
 
 #include <string>
 #include <fstream>
@@ -128,4 +128,4 @@ class Logger {
   std::ofstream log_file_;
 };
 
-#endif  // DEEPSTREAM_INFER_LAB_INCLUDE_LOGGER_HPP_
+#endif  // DEEP_INFER_INCLUDE_LOGGER_HPP_

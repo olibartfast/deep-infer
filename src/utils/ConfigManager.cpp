@@ -70,8 +70,8 @@ class ConfigManager {
     
  private:
   static void PrintHelp() {
-    std::cout << "DeepStream Inference Lab - Computer Vision with NVIDIA DeepStream\n\n";
-    std::cout << "Usage: deepstream-infer-lab [options]\n\n";
+    std::cout << "Deep Infer - Computer Vision with NVIDIA DeepStream\n\n";
+    std::cout << "Usage: deep-infer [options]\n\n";
     std::cout << "Required Options:\n";
     std::cout << "  -s, --source <path>        Input source (video file, image, or RTSP stream)\n";
     std::cout << "  -c, --config <path>        DeepStream config file path\n";
@@ -89,7 +89,7 @@ class ConfigManager {
     std::cout << "  -v, --verbose              Enable verbose logging\n";
     std::cout << "  -h, --help                 Show this help message\n\n";
     std::cout << "Examples:\n";
-    std::cout << "  deepstream-infer-lab -s video.mp4 -c config.txt -mt yolov8 -l coco.names\n";
-    std::cout << "  deepstream-infer-lab -s rtsp://camera -c config.txt -mt yolov5 --tracker\n";
+    std::cout << "  deep-infer -s video.mp4 -c config.txt -mt yolov8 -l coco.names\n";
+    std::cout << "  deep-infer -s rtsp://camera -c config.txt -mt yolov5 --tracker\n";
   }
 };

@@ -1,6 +1,6 @@
 # Sample build commands:
-#   x86_64:  docker build --build-arg BASE_IMAGE=nvcr.io/nvidia/deepstream:8.0-gc-triton-devel -t deepstream-infer-lab .
-#   Jetson:  docker build --build-arg BASE_IMAGE=nvcr.io/nvidia/deepstream:9.0-triton-multiarch --build-arg DEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.0 -t deepstream-infer-lab .
+#   x86_64:  docker build --build-arg BASE_IMAGE=nvcr.io/nvidia/deepstream:8.0-gc-triton-devel -t deep-infer .
+#   Jetson:  docker build --build-arg BASE_IMAGE=nvcr.io/nvidia/deepstream:9.0-triton-multiarch --build-arg DEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.0 -t deep-infer .
 
 ARG BASE_IMAGE=nvcr.io/nvidia/deepstream:8.0-gc-triton-devel
 FROM ${BASE_IMAGE}
@@ -58,7 +58,7 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser && \
 USER appuser
 
 # Set the entry point for the container
-ENTRYPOINT ["/app/build/deepstream-infer-lab"]
+ENTRYPOINT ["/app/build/deep-infer"]
 
 # Default command if no arguments are provided
 CMD ["--help"]

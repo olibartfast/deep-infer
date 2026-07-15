@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.19)
 
-project(deepstream-infer-lab)
+project(deep-infer)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

@@ -1,5 +1,5 @@
 {
-  "name": "DeepStream Inference Lab",
+  "name": "Deep Infer",
   "build": {
     "dockerfile": "Dockerfile",
     "context": "..",

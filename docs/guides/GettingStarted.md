@@ -2,7 +2,7 @@
 
 ## Quick Start
 
-This guide will help you get started with DeepStream Inference Lab using DeepStream 8.0.
+This guide will help you get started with Deep Infer using DeepStream 8.0.
 
 ### Prerequisites
 
@@ -112,7 +112,7 @@ pre-cluster-threshold=0.25
 ### 5. Run Inference
 
 ```bash
-./build/deepstream-infer-lab \
+./build/deep-infer \
     --source=../data/videos/sample.mp4 \
     --config=../configs/yolov8_config.txt \
     --model_type=yolov8 \
@@ -125,7 +125,7 @@ pre-cluster-threshold=0.25
 ### Video File Processing
 
 ```bash
-./build/deepstream-infer-lab \
+./build/deep-infer \
     -s /path/to/video.mp4 \
     -c configs/yolov8_config.txt \
     -mt yolov8 \
@@ -135,8 +135,8 @@ pre-cluster-threshold=0.25
 ### RTSP Stream
 
 ```bash
-./build/deepstream-infer-lab \
-    -s rtsp://camera-ip:8554/stream \
+./build/deep-infer \
+    -s rtsp://192.168.1.100:8554/stream \
     -c configs/yolov8_config.txt \
     -mt yolov8 \
     --tracker \
@@ -146,7 +146,7 @@ pre-cluster-threshold=0.25
 ### USB Camera
 
 ```bash
-./build/deepstream-infer-lab \
+./build/deep-infer \
     -s /dev/video0 \
     -c configs/yolov8_config.txt \
     -mt yolov8 \
@@ -223,8 +223,8 @@ docker run -it --entrypoint /bin/bash \
     --gpus all --rm --network=host --privileged \
     -e DISPLAY=${DISPLAY} \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -v ${PWD}:/workspace/deepstream-infer-lab \
-    -w /workspace/deepstream-infer-lab \
+    -v ${PWD}:/workspace/deep-infer \
+    -w /workspace/deep-infer \
     nvcr.io/nvidia/deepstream:9.0-triton-multiarch
 
 # JetPack 6.x / DS 7.1:
@@ -232,8 +232,8 @@ docker run -it --entrypoint /bin/bash \
     --gpus all --rm --network=host --privileged \
     -e DISPLAY=${DISPLAY} \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -v ${PWD}:/workspace/deepstream-infer-lab \
-    -w /workspace/deepstream-infer-lab \
+    -v ${PWD}:/workspace/deep-infer \
+    -w /workspace/deep-infer \
     nvcr.io/nvidia/deepstream:7.1-samples-multiarch
 ```
 
@@ -264,12 +264,12 @@ docker run --rm --gpus all --privileged --network host --ipc=host \
     -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,video,graphics \
     -e DISPLAY=${DISPLAY:-:0} \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -v ${PWD}:/workspace/deepstream-infer-lab \
-    -w /workspace/deepstream-infer-lab \
+    -v ${PWD}:/workspace/deep-infer \
+    -w /workspace/deep-infer \
     nvcr.io/nvidia/deepstream:9.0-triton-multiarch \
-    /workspace/deepstream-infer-lab/build/deepstream-infer-lab \
-      --source=/workspace/deepstream-infer-lab/data/videos/sample.mp4 \
-      --config=/workspace/deepstream-infer-lab/configs/yolov8_config.txt \
+    /workspace/deep-infer/build/deep-infer \
+      --source=/workspace/deep-infer/data/videos/sample.mp4 \
+      --config=/workspace/deep-infer/configs/yolov8_config.txt \
       --model_type=yolov8
 ```
 
@@ -364,6 +364,17 @@ sudo apt-get install --reinstall libflac8 libmp3lame0 libxvidcore4 ffmpeg
 - Reduce batch size
 - Use a smaller model
 - Enable FP16 mode
+
+## TODO — JetPack 7.2 / DeepStream 9.0 Migration
+
+- [x] 1. Update CMake search paths for `deepstream-9.0`
+- [x] 2. Update `detect_target_profile()` for L4T R39 → `jetson-ds9.0`
+- [x] 3. Update README, AGENTS.md, Dockerfile for JetPack 7.2 era
+- [x] 4. Install DeepStream 9.0 SDK (`deepstream-9.0_9.0.0-1_arm64.deb` from NGC)
+- [x] 5. Rebuild with `-DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.0`
+- [x] 6. End-to-end inference test on Jetson (video + model)
+- [x] 7. Update GettingStarted guide: DS 8.0 → 9.0 paths and Docker references
+- [x] 8. Verify Docker container flow with `nvcr.io/nvidia/deepstream:9.0-triton-multiarch`
 
 ## Future Guides
 
