@@ -126,8 +126,8 @@ This project supports both x86_64 systems (with DeepStream 8.0+) and Jetson Orin
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/olibartfast/deepstream-infer-lab.git
-cd deepstream-infer-lab
+git clone https://github.com/olibartfast/deep-infer.git
+cd deep-infer
 ```
 
 2. Ensure host build tools are installed:
@@ -481,4 +481,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Feedback
 
-Any feedback is greatly appreciated. If you have suggestions, bug reports, or questions, please open an [issue](https://github.com/olibartfast/deepstream-infer-lab/issues).
+Any feedback is greatly appreciated. If you have suggestions, bug reports, or questions, please open an [issue](https://github.com/olibartfast/deep-infer/issues).

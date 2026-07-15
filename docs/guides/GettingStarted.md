@@ -57,8 +57,8 @@ sudo apt-get install --reinstall libflac8 libmp3lame0 libxvidcore4 ffmpeg
 ### 2. Build the Project
 
 ```bash
-git clone https://github.com/olibartfast/deepstream-infer-lab.git
-cd deepstream-infer-lab
+git clone https://github.com/olibartfast/deep-infer.git
+cd deep-infer
 mkdir build && cd build
 
 # x86_64 with DS 8.0:
@@ -136,7 +136,7 @@ pre-cluster-threshold=0.25
 
 ```bash
 ./build/deepstream-infer-lab \
-    -s rtsp://192.168.1.100:8554/stream \
+    -s rtsp://camera-ip:8554/stream \
     -c configs/yolov8_config.txt \
     -mt yolov8 \
     --tracker \
@@ -364,17 +364,6 @@ sudo apt-get install --reinstall libflac8 libmp3lame0 libxvidcore4 ffmpeg
 - Reduce batch size
 - Use a smaller model
 - Enable FP16 mode
-
-## TODO — JetPack 7.2 / DeepStream 9.0 Migration
-
-- [x] 1. Update CMake search paths for `deepstream-9.0`
-- [x] 2. Update `detect_target_profile()` for L4T R39 → `jetson-ds9.0`
-- [x] 3. Update README, AGENTS.md, Dockerfile for JetPack 7.2 era
-- [x] 4. Install DeepStream 9.0 SDK (`deepstream-9.0_9.0.0-1_arm64.deb` from NGC)
-- [x] 5. Rebuild with `-DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.0`
-- [x] 6. End-to-end inference test on Jetson (video + model)
-- [x] 7. Update GettingStarted guide: DS 8.0 → 9.0 paths and Docker references
-- [x] 8. Verify Docker container flow with `nvcr.io/nvidia/deepstream:9.0-triton-multiarch`
 
 ## Future Guides
 
