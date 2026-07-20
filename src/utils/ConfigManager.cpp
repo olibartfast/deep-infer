@@ -12,45 +12,65 @@ class ConfigManager {
     
     for (int i = 1; i < argc; i++) {
       std::string arg = argv[i];
-      
+
+      // Support both "--opt value" and "--opt=value" forms.
+      std::string inline_value;
+      bool has_inline_value = false;
+      if (arg.rfind("--", 0) == 0) {
+        const auto eq = arg.find('=');
+        if (eq != std::string::npos) {
+          inline_value = arg.substr(eq + 1);
+          arg = arg.substr(0, eq);
+          has_inline_value = true;
+        }
+      }
+
+      // Returns the value for an option: the inline value if present
+      // ("--opt=value"), otherwise the following argument ("--opt value").
+      const auto next_value = [&](std::string& target) {
+        if (has_inline_value) {
+          target = inline_value;
+        } else if (i + 1 < argc) {
+          target = argv[++i];
+        }
+      };
+
       if (arg == "--help" || arg == "-h") {
         PrintHelp();
         exit(0);
       } else if (arg == "--source" || arg == "-s") {
-        if (i + 1 < argc) {
-          config.source = argv[++i];
-        }
+        next_value(config.source);
       } else if (arg == "--config" || arg == "-c") {
-        if (i + 1 < argc) {
-          config.config_file = argv[++i];
-        }
+        next_value(config.config_file);
       } else if (arg == "--model_type" || arg == "-mt") {
-        if (i + 1 < argc) {
-          config.model_type = argv[++i];
-        }
+        next_value(config.model_type);
       } else if (arg == "--labels" || arg == "-l") {
-        if (i + 1 < argc) {
-          config.labels_file = argv[++i];
-        }
+        next_value(config.labels_file);
       } else if (arg == "--output" || arg == "-o") {
-        if (i + 1 < argc) {
-          config.output_path = argv[++i];
-        }
+        next_value(config.output_path);
       } else if (arg == "--confidence" || arg == "-conf") {
-        if (i + 1 < argc) {
-          config.confidence_threshold = std::stof(argv[++i]);
+        std::string v;
+        next_value(v);
+        if (!v.empty()) {
+          config.confidence_threshold = std::stof(v);
         }
       } else if (arg == "--nms" || arg == "-nms") {
-        if (i + 1 < argc) {
-          config.nms_threshold = std::stof(argv[++i]);
+        std::string v;
+        next_value(v);
+        if (!v.empty()) {
+          config.nms_threshold = std::stof(v);
         }
       } else if (arg == "--gpu" || arg == "-g") {
-        if (i + 1 < argc) {
-          config.gpu_id = std::stoi(argv[++i]);
+        std::string v;
+        next_value(v);
+        if (!v.empty()) {
+          config.gpu_id = std::stoi(v);
         }
       } else if (arg == "--tracker") {
         config.use_tracker = true;
-        if (i + 1 < argc && argv[i + 1][0] != '-') {
+        if (has_inline_value) {
+          config.tracker_config = inline_value;
+        } else if (i + 1 < argc && argv[i + 1][0] != '-') {
           config.tracker_config = argv[++i];
         }
       } else if (arg == "--analytics") {
@@ -75,7 +95,7 @@ class ConfigManager {
     std::cout << "Required Options:\n";
     std::cout << "  -s, --source <path>        Input source (video file, image, or RTSP stream)\n";
     std::cout << "  -c, --config <path>        DeepStream config file path\n";
-    std::cout << "  -mt, --model_type <type>   Model type (yolov5, yolov8, etc.)\n\n";
+    std::cout << "  -mt, --model_type <type>   Model type (yolov8, rfdetr_segmentation, yolo_pose)\n\n";
     std::cout << "Optional:\n";
     std::cout << "  -l, --labels <path>        Path to labels file\n";
     std::cout << "  -o, --output <path>        Output path for results\n";

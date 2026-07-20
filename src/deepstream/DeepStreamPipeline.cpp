@@ -1,13 +1,30 @@
 #include "DeepStreamPipeline.hpp"
+#include "TensorPostprocess.hpp"
 #include "utils.hpp"
 
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <string>
 #include <stdexcept>
 
 namespace {
 constexpr const char* kNvmmMemoryFeature = "memory:NVMM";
+
+// Models whose raw output tensors are post-processed by neuriplo-tasks in the
+// OSD sink probe rather than through DeepStream's object-metadata parsers.
+bool UsesTensorMetaPostprocess(const std::string& model_type) {
+    std::string t;
+    t.reserve(model_type.size());
+    for (char c : model_type) {
+        t.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+    }
+    const bool pose = (t.find("yolo") != std::string::npos) && (t.find("pose") != std::string::npos);
+    const bool rfdetr_seg =
+        (t.find("rfdetr") != std::string::npos) && (t.find("seg") != std::string::npos);
+    return pose || rfdetr_seg;
 }
+}  // namespace
 
 DeepStreamPipeline::DeepStreamPipeline(const Config& config)
     : pipeline_(nullptr)
@@ -160,6 +177,19 @@ bool DeepStreamPipeline::ConfigureElements() {
 
     if (!CreatePrimaryGIE()) {
         return false;
+    }
+
+    // For pose / segmentation models we bypass DeepStream's built-in object
+    // parsers and instead read the raw output tensors (output-tensor-meta=1)
+    // so neuriplo-tasks postprocessors can run in the probe. network-type=100
+    // (custom) is set in the nvinfer config file itself.
+    if (UsesTensorMetaPostprocess(config_.model_type)) {
+        g_object_set(G_OBJECT(pgie_),
+            "output-tensor-meta", TRUE,
+            "gpu-id", config_.gpu_id,
+            nullptr);
+        logger_.Infof("Tensor-meta postprocessing enabled for model_type=%s",
+                      config_.model_type.c_str());
     }
 
     g_object_set(
@@ -354,6 +384,8 @@ GstPadProbeReturn DeepStreamPipeline::OsdSinkPadBufferProbe(
         return GST_PAD_PROBE_OK;
     }
 
+    const bool tensor_meta_mode = UsesTensorMetaPostprocess(pipeline->config_.model_type);
+
     for (NvDsMetaList* frame_node = batch_meta->frame_meta_list;
          frame_node != nullptr;
          frame_node = frame_node->next) {
@@ -363,20 +395,46 @@ GstPadProbeReturn DeepStreamPipeline::OsdSinkPadBufferProbe(
         }
 
         AppResult result;
-        for (NvDsMetaList* object_node = frame_meta->obj_meta_list;
-             object_node != nullptr;
-             object_node = object_node->next) {
-            auto* object_meta = static_cast<NvDsObjectMeta*>(object_node->data);
 
-            neuriplo_tasks::Detection detection;
-            detection.bbox = neuriplo_tasks::vision::Rect(
-                static_cast<int>(object_meta->rect_params.left),
-                static_cast<int>(object_meta->rect_params.top),
-                static_cast<int>(object_meta->rect_params.width),
-                static_cast<int>(object_meta->rect_params.height));
-            detection.class_confidence = object_meta->confidence;
-            detection.class_id = object_meta->class_id;
-            result.results.push_back(detection);
+        if (tensor_meta_mode) {
+            // Pose / segmentation: post-process raw nvinfer output tensors.
+            deepinfer::FrameSize in_size{pipeline->config_.input_width,
+                                         pipeline->config_.input_height};
+            deepinfer::FrameSize frame_size{static_cast<int>(frame_meta->source_frame_width),
+                                            static_cast<int>(frame_meta->source_frame_height)};
+            for (NvDsMetaList* user_node = frame_meta->frame_user_meta_list;
+                 user_node != nullptr;
+                 user_node = user_node->next) {
+                auto* user_meta = static_cast<NvDsUserMeta*>(user_node->data);
+                if (user_meta == nullptr || user_meta->base_meta.meta_type != NVDSINFER_TENSOR_OUTPUT_META) {
+                    continue;
+                }
+                auto* tensor_meta =
+                    static_cast<NvDsInferTensorMeta*>(user_meta->user_meta_data);
+                auto partial = deepinfer::PostprocessTensorMeta(
+                    tensor_meta, pipeline->config_.model_type, in_size, frame_size,
+                    pipeline->config_.confidence_threshold, pipeline->config_.nms_threshold);
+                for (auto& r : partial) {
+                    result.results.push_back(std::move(r));
+                }
+            }
+        } else {
+            // Detection: read DeepStream object metadata.
+            for (NvDsMetaList* object_node = frame_meta->obj_meta_list;
+                 object_node != nullptr;
+                 object_node = object_node->next) {
+                auto* object_meta = static_cast<NvDsObjectMeta*>(object_node->data);
+
+                neuriplo_tasks::Detection detection;
+                detection.bbox = neuriplo_tasks::vision::Rect(
+                    static_cast<int>(object_meta->rect_params.left),
+                    static_cast<int>(object_meta->rect_params.top),
+                    static_cast<int>(object_meta->rect_params.width),
+                    static_cast<int>(object_meta->rect_params.height));
+                detection.class_confidence = object_meta->confidence;
+                detection.class_id = object_meta->class_id;
+                result.results.push_back(detection);
+            }
         }
 
         pipeline->frame_callback_(result);

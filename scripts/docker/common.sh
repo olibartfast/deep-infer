@@ -127,6 +127,8 @@ if [ -x /opt/nvidia/deepstream/deepstream/user_additional_install.sh ]; then
   /opt/nvidia/deepstream/deepstream/user_additional_install.sh;
 fi &&
 apt-get install -y libopencv-dev libde265-0 libx265-199 &&
-apt-get install --reinstall -y libflac8 libmp3lame0 libxvidcore4 ffmpeg
+# The base image records libjbig0 as installed but ships no libjbig.so.0 on
+# disk; force a reinstall so libtiff's runtime DT_NEEDED resolves.
+apt-get install --reinstall -y libjbig0 libflac8 libmp3lame0 libxvidcore4 ffmpeg
 EOF
 }

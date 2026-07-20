@@ -19,8 +19,10 @@ RUN apt-get update && apt-get install -y \
     libgstreamer1.0-dev \
     libgstreamer-plugins-base1.0-dev \
     libglib2.0-dev \
+    libjbig-dev \
     pkg-config \
     git \
+    && apt-get install --reinstall -y libjbig0 \
     && apt-get install --reinstall -y libflac8 libmp3lame0 libxvidcore4 ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 

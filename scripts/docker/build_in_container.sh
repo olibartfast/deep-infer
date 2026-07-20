@@ -30,7 +30,9 @@ docker run --rm -it \
     if [ -x /opt/nvidia/deepstream/deepstream/user_additional_install.sh ]; then
       /opt/nvidia/deepstream/deepstream/user_additional_install.sh;
     fi &&
-    apt-get install -y build-essential cmake ninja-build pkg-config libopencv-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libglib2.0-dev libde265-0 libx265-199 &&
+    apt-get install -y build-essential cmake ninja-build pkg-config libopencv-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libglib2.0-dev libde265-0 libx265-199 libjbig-dev &&
+    # Base image ships libjbig0 as "installed" but without libjbig.so.0 on disk.
+    apt-get install --reinstall -y libjbig0 &&
     apt-get install --reinstall -y libflac8 libmp3lame0 libxvidcore4 ffmpeg &&
     rm -rf build &&
     cmake -S . -B build -GNinja -DDEEPSTREAM_DIR=${DEEPSTREAM_DIR} -DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda &&

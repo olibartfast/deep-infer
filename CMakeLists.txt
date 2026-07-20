@@ -35,6 +35,13 @@ find_package(OpenCV REQUIRED)
 find_package(CUDA   REQUIRED)
 find_package(PkgConfig REQUIRED)
 
+# OpenCV's libtiff depends on JBIG (jbg_* symbols). Some base images do not
+# ship the shared libjbig.so.0 runtime, so link the static archive with
+# --whole-archive to satisfy libtiff at both link and run time.
+find_library(JBIG_STATIC_LIB
+    NAMES libjbig.a
+    PATHS /usr/lib/x86_64-linux-gnu /usr/lib/aarch64-linux-gnu /usr/lib /usr/lib64)
+
 pkg_check_modules(GSTREAMER       REQUIRED gstreamer-1.0)
 pkg_check_modules(GSTREAMER_VIDEO REQUIRED gstreamer-video-1.0)
 pkg_check_modules(GLIB            REQUIRED glib-2.0)
@@ -44,11 +51,11 @@ pkg_check_modules(GLIB            REQUIRED glib-2.0)
 # ---------------------------------------------------------------------------
 include(FetchContent)
 FetchContent_Declare(
-    vision-core
-    GIT_REPOSITORY https://github.com/olibartfast/vision-core.git
+    neuriplo-tasks
+    GIT_REPOSITORY https://github.com/olibartfast/neuriplo-tasks.git
     GIT_TAG        master
 )
-FetchContent_MakeAvailable(vision-core)
+FetchContent_MakeAvailable(neuriplo-tasks)
 
 # ---------------------------------------------------------------------------
 # DeepStream paths
@@ -110,6 +117,10 @@ else()
         ${PROJECT_SOURCE_DIR}/src/deepstream/DeepStreamPipelineStub.cpp
     )
 endif()
+
+list(APPEND SOURCES
+    ${PROJECT_SOURCE_DIR}/src/deepstream/TensorPostprocess.cpp
+)
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
@@ -175,6 +186,15 @@ target_link_libraries(${PROJECT_NAME}
         dl
 )
 
+if(JBIG_STATIC_LIB)
+    target_link_libraries(${PROJECT_NAME}
+        PRIVATE
+            -Wl,--whole-archive
+            ${JBIG_STATIC_LIB}
+            -Wl,--no-whole-archive
+    )
+endif()
+
 if(DEEPSTREAM_FOUND)
     target_link_libraries(${PROJECT_NAME}
         PRIVATE
@@ -200,6 +220,16 @@ target_compile_options(${PROJECT_NAME}
         -Wextra
         -Wno-unused-parameter
 )
+
+# GNU ld does not always search the multiarch lib dir (e.g.
+# /usr/lib/x86_64-linux-gnu) for the indirect DT_NEEDED dependencies of shared
+# libraries such as OpenCV's libtiff -> libjbig. Point -rpath-link at the
+# multiarch directory so these transitive shared deps resolve at link time.
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+    target_link_options(${PROJECT_NAME} PRIVATE -Wl,-rpath-link,/usr/lib/aarch64-linux-gnu)
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$")
+    target_link_options(${PROJECT_NAME} PRIVATE -Wl,-rpath-link,/usr/lib/x86_64-linux-gnu)
+endif()
 
 # ---------------------------------------------------------------------------
 # Install

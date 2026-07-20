@@ -20,6 +20,8 @@
 #if HAVE_DEEPSTREAM
 #include "gstnvdsmeta.h"
 #include "nvds_analytics_meta.h"
+#include "nvdsinfer.h"
+#include "gstnvdsinfer.h"
 #include "nvbufsurface.h"
 #include "nvbufsurftransform.h"
 #else
@@ -27,6 +29,8 @@ struct NvDsBatchMeta;
 struct NvDsFrameMeta;
 struct NvDsMetaList;
 struct NvDsObjectMeta;
+struct NvDsUserMeta;
+struct NvDsInferTensorMeta;
 struct NvBufSurface;
 #endif
 

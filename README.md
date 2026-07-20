@@ -212,6 +212,79 @@ Use `jetson-ds9.0` in place of `x86-ds9.0` on the supported Jetson baseline.
 Docker requires the NVIDIA Container Toolkit on desktop or the JetPack NVIDIA
 container runtime on Jetson.
 
+## End-to-end examples (segmentation & pose)
+
+`deep-infer` supports instance segmentation and pose estimation through
+[neuriplo-tasks](https://github.com/olibartfast/neuriplo-tasks) postprocessors.
+For these models DeepStream runs with `network-type=100` and
+`output-tensor-meta=1`, and the OSD sink probe converts the raw nvinfer output
+tensors into typed results (`InstanceSegmentation` / `PoseEstimation`).
+
+The full flow runs inside the NGC container: build, export the model to ONNX,
+then run.
+
+### 1. Build inside the container
+
+```bash
+./scripts/docker/build_in_container.sh x86-ds9.0
+```
+
+This produces `build/deep-infer` linked against the local DeepStream SDK.
+
+### 2. Export the models
+
+Use the neuriplo-tasks exporters to create the ONNX models (run inside the
+container, or anywhere with Python + the listed deps):
+
+```bash
+# Both models:
+docker run --rm --gpus all -v "$PWD":/ws -w /ws \
+    nvcr.io/nvidia/deepstream:9.0-triton-multiarch \
+    ./scripts/setup/export_models.sh all
+
+# Or one at a time:
+#   ./scripts/setup/export_models.sh pose   -> models/yolo26s-pose.onnx
+#   ./scripts/setup/export_models.sh seg    -> models/rfdetr_seg_small.onnx
+```
+
+DeepStream generates the TensorRT `.engine` from the ONNX on the target GPU the
+first time the pipeline starts.
+
+### 3. RF-DETR segmentation
+
+```bash
+./scripts/docker/run_rfdetr_segmentation.sh x86-ds9.0
+```
+
+This runs `configs/rfdetr_segmentation_config.txt` with
+`--model_type rfdetr_segmentation` over `people-walking.mp4`. Each frame yields
+`neuriplo_tasks::InstanceSegmentation` results (bounding box, class, and a
+binary mask) via `RfDetrSegmentationPostprocessor` on the model's three output
+tensors (`dets`, `labels`, `masks`). Verified end-to-end on `people-walking.mp4`
+(1–3 segmented people per person-frame).
+
+### 4. YOLO26 pose
+
+```bash
+./scripts/docker/run_yolo_pose.sh x86-ds9.0
+```
+
+This runs `configs/yolo26_pose_config.txt` with `--model_type yolo_pose` over
+`people-walking.mp4`. Each frame yields `neuriplo_tasks::PoseEstimation`
+results (person bounding box plus 17 COCO keypoints).
+
+The pose bridge auto-detects the export format: the modern Ultralytics decoded
+layout `[batch, 300, 57]` (YOLO26, `yolo26s-pose`) is handled by a built-in
+top-N decoder, while the classic anchor layout `[batch, 56, 8400]`
+(YOLOv8/YOLO11) goes through `YoloPosePostprocessor` directly. Verified
+end-to-end on `people-walking.mp4` (poses emitted on person frames).
+
+| `--model_type` | Postprocessor | Result type |
+|---|---|---|
+| `rfdetr_segmentation` | `RfDetrSegmentationPostprocessor` | `InstanceSegmentation` |
+| `yolo_pose` | `YoloPosePostprocessor` / top-N decoder | `PoseEstimation` |
+| `yolov8` (default) | DeepStream object metadata | `Detection` |
+
 ## Troubleshooting
 
 ### CMake builds the stub pipeline
