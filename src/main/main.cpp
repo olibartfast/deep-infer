@@ -43,13 +43,24 @@ int main(int argc, const char* argv[]) {
         // Set frame callback for processing results
         pipeline.SetFrameCallback([&](const AppResult& result) {
             // Process results here
+            size_t object_count = 0;
             size_t detection_count = 0;
+            size_t seg_count = 0;
+            size_t pose_count = 0;
             for (const auto& res : result.results) {
+                object_count++;
                 if (std::holds_alternative<neuriplo_tasks::Detection>(res)) {
                     detection_count++;
+                } else if (std::holds_alternative<neuriplo_tasks::InstanceSegmentation>(res)) {
+                    seg_count++;
+                } else if (std::holds_alternative<neuriplo_tasks::PoseEstimation>(res)) {
+                    pose_count++;
                 }
             }
-            logger.Debugf("Processed frame with %zu detections", detection_count);
+            if (detection_count > 0 || seg_count > 0 || pose_count > 0) {
+                logger.Debugf("Processed frame with %zu objects (det=%zu seg=%zu pose=%zu)",
+                              object_count, detection_count, seg_count, pose_count);
+            }
             
             #ifdef WRITE_FRAME
             if (config.write_frame && !result.frame.empty()) {
