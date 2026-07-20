@@ -1,5 +1,5 @@
-#ifndef DEEPSTREAM_INFER_LAB_INCLUDE_COMMON_HPP_
-#define DEEPSTREAM_INFER_LAB_INCLUDE_COMMON_HPP_
+#ifndef DEEP_INFER_INCLUDE_COMMON_HPP_
+#define DEEP_INFER_INCLUDE_COMMON_HPP_
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/cuda.hpp>
@@ -10,21 +10,37 @@
 #include <optional>
 #include <stdexcept>
 
+#ifndef HAVE_DEEPSTREAM
+#define HAVE_DEEPSTREAM 0
+#endif
+
 // DeepStream headers
 #include <gst/gst.h>
 #include <glib.h>
+#if HAVE_DEEPSTREAM
 #include "gstnvdsmeta.h"
 #include "nvds_analytics_meta.h"
+#include "nvdsinfer.h"
+#include "gstnvdsinfer.h"
 #include "nvbufsurface.h"
 #include "nvbufsurftransform.h"
+#else
+struct NvDsBatchMeta;
+struct NvDsFrameMeta;
+struct NvDsMetaList;
+struct NvDsObjectMeta;
+struct NvDsUserMeta;
+struct NvDsInferTensorMeta;
+struct NvBufSurface;
+#endif
 
 // Vision Core
-#include <vision-core/core/result_types.hpp>
+#include <neuriplo/tasks/core/result_types.hpp>
 
 // Common structures
 struct AppResult {
     cv::Mat frame;
-    std::vector<vision_core::Result> results;
+    std::vector<neuriplo_tasks::Result> results;
 };
 
 enum class TaskType {
@@ -53,4 +69,4 @@ public:
         : std::runtime_error("Input Dimension Error: " + message) {}
 };
 
-#endif  // DEEPSTREAM_INFER_LAB_INCLUDE_COMMON_HPP_
+#endif  // DEEP_INFER_INCLUDE_COMMON_HPP_

@@ -1,0 +1,35 @@
+# YOLO26 Pose DeepStream Configuration
+#
+# Ultralytics YOLO26-pose (also works for YOLOv8/v11 pose).
+# Output tensor: [batch, 4+1+17*3, anchors] = [1, 56, 8400] for 17 COCO keypoints.
+#
+# network-type=100 (custom) + output-tensor-meta=1 keeps the raw output tensors,
+# which the deep-infer OSD probe hands to neuriplo-tasks' YoloPosePostprocessor.
+
+[property]
+gpu-id=0
+
+# Preprocessing: YOLO expects RGB, pixel values scaled to [0,1], no mean subtraction.
+net-scale-factor=0.0039215697906911373
+offsets=0.0;0.0;0.0
+model-color-format=0
+
+# Model files (export yolo26x-pose.pt -> onnx first; engine is generated on target GPU).
+onnx-file=../models/yolo26s-pose.onnx
+model-engine-file=../models/yolo26s-pose.engine
+
+# Pose models have a single class: person.
+labelfile-path=../data/labels/pose.names
+
+# Inference parameters.
+batch-size=1
+network-mode=2
+num-detected-classes=1
+interval=0
+gie-unique-id=1
+process-mode=1
+maintain-aspect-ratio=1
+
+# Bypass DeepStream object parsing; emit raw output tensors to the probe.
+network-type=100
+output-tensor-meta=1

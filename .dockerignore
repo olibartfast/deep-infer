@@ -1,0 +1,8 @@
+.git
+.github
+.codex
+.devcontainer
+build
+output
+node_modules
+package-lock.json

@@ -1,13 +1,16 @@
-# Production Dockerfile for DeepStream Inference Lab
-# Build: docker build --rm -t deepstream-infer-lab .
-# Run: docker run --rm --gpus all deepstream-infer-lab [args]
+# Sample build commands:
+#   x86_64:  docker build --build-arg BASE_IMAGE=nvcr.io/nvidia/deepstream:8.0-gc-triton-devel -t deep-infer .
+#   Jetson:  docker build --build-arg BASE_IMAGE=nvcr.io/nvidia/deepstream:9.0-triton-multiarch --build-arg DEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.0 -t deep-infer .
 
+ARG BASE_IMAGE=nvcr.io/nvidia/deepstream:8.0-gc-triton-devel
+FROM ${BASE_IMAGE}
+
+ARG BASE_IMAGE
 ARG DEEPSTREAM_VERSION=8.0
-FROM nvcr.io/nvidia/deepstream:${DEEPSTREAM_VERSION}-gc-triton-devel
+ARG DEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-8.0
 
 # Install dependencies
-# Note: DS 8.0 containers do not package some multimedia codec libraries.
-# ffmpeg and related libs must be reinstalled explicitly.
+# DeepStream containers do not ship every multimedia codec package by default.
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
@@ -16,13 +19,15 @@ RUN apt-get update && apt-get install -y \
     libgstreamer1.0-dev \
     libgstreamer-plugins-base1.0-dev \
     libglib2.0-dev \
+    libjbig-dev \
     pkg-config \
     git \
+    && apt-get install --reinstall -y libjbig0 \
     && apt-get install --reinstall -y libflac8 libmp3lame0 libxvidcore4 ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# DeepStream 8.0 installs to a versioned path
-ENV DEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-8.0
+# DeepStream installs to a versioned path
+ENV DEEPSTREAM_DIR=${DEEPSTREAM_DIR}
 
 # Set working directory
 WORKDIR /app
@@ -45,8 +50,8 @@ RUN rm -rf build && \
 LABEL maintainer="Computer Vision DeepStream Client"
 LABEL description="C++ client for computer vision inference with NVIDIA DeepStream"
 LABEL version="1.0"
-LABEL deepstream.version="8.0"
-LABEL base.image="nvcr.io/nvidia/deepstream:8.0-gc-triton-devel"
+LABEL deepstream.version="${DEEPSTREAM_VERSION}"
+LABEL base.image="${BASE_IMAGE}"
 
 # Create non-root user for security
 RUN groupadd -r appuser && useradd -r -g appuser appuser && \
@@ -55,7 +60,7 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser && \
 USER appuser
 
 # Set the entry point for the container
-ENTRYPOINT ["/app/build/deepstream-infer-lab"]
+ENTRYPOINT ["/app/build/deep-infer"]
 
 # Default command if no arguments are provided
 CMD ["--help"]

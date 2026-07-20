@@ -2,7 +2,7 @@
 
 ## Quick Start
 
-This guide will help you get started with DeepStream Inference Lab using DeepStream 8.0.
+This guide will help you get started with Deep Infer using DeepStream 8.0.
 
 ### Prerequisites
 
@@ -13,6 +13,8 @@ This guide will help you get started with DeepStream Inference Lab using DeepStr
 - TensorRT **>= 10.9.0.34**
 
 ### 1. Install Prerequisites
+
+#### x86_64 (DeepStream 8.0)
 
 ```bash
 # Install DeepStream SDK 8.0 (deb method)
@@ -25,7 +27,19 @@ sudo tar -xvf deepstream_sdk_v8.0.0_x86_64.tbz2 -C /
 cd /opt/nvidia/deepstream/deepstream-8.0/
 sudo ./install.sh
 sudo ldconfig
+```
 
+#### Jetson Orin JetPack 7.x (DeepStream 9.0)
+
+```bash
+# Download deepstream-9.0_9.0.0-1_arm64.deb from NGC
+sudo apt-get install ./deepstream-9.0_9.0.0-1_arm64.deb
+
+# Fix missing RTSP server lib if needed
+sudo apt-get install -y libgstrtspserver-1.0-0
+```
+
+```bash
 # Install dependencies
 sudo apt update
 sudo apt install -y \
@@ -43,13 +57,18 @@ sudo apt-get install --reinstall libflac8 libmp3lame0 libxvidcore4 ffmpeg
 ### 2. Build the Project
 
 ```bash
-git clone https://github.com/olibartfast/deepstream-infer-lab.git
-cd deepstream-infer-lab
+git clone https://github.com/olibartfast/deep-infer.git
+cd deep-infer
 mkdir build && cd build
 
-# DS 8.0 uses a versioned directory. Pass it explicitly if auto-detection fails.
+# x86_64 with DS 8.0:
 cmake -DCMAKE_BUILD_TYPE=Release -GNinja \
       -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-8.0 ..
+
+# Jetson with DS 9.0:
+cmake -DCMAKE_BUILD_TYPE=Release -GNinja \
+      -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.0 ..
+
 ninja
 ```
 
@@ -93,7 +112,7 @@ pre-cluster-threshold=0.25
 ### 5. Run Inference
 
 ```bash
-./build/deepstream-infer-lab \
+./build/deep-infer \
     --source=../data/videos/sample.mp4 \
     --config=../configs/yolov8_config.txt \
     --model_type=yolov8 \
@@ -106,7 +125,7 @@ pre-cluster-threshold=0.25
 ### Video File Processing
 
 ```bash
-./build/deepstream-infer-lab \
+./build/deep-infer \
     -s /path/to/video.mp4 \
     -c configs/yolov8_config.txt \
     -mt yolov8 \
@@ -116,7 +135,7 @@ pre-cluster-threshold=0.25
 ### RTSP Stream
 
 ```bash
-./build/deepstream-infer-lab \
+./build/deep-infer \
     -s rtsp://192.168.1.100:8554/stream \
     -c configs/yolov8_config.txt \
     -mt yolov8 \
@@ -127,56 +146,141 @@ pre-cluster-threshold=0.25
 ### USB Camera
 
 ```bash
-./build/deepstream-infer-lab \
+./build/deep-infer \
     -s /dev/video0 \
     -c configs/yolov8_config.txt \
     -mt yolov8 \
     --show
 ```
 
-## Docker Usage (8.0-gc-triton-devel)
+## Docker Usage
 
-The project uses the **`8.0-gc-triton-devel`** container as its base image. This includes the Graph Composer tools, Triton Inference Server backends, and the full DeepStream 8.0 development SDK.
+The project supports host-specific DeepStream container profiles. On Jetson Orin devices running JetPack 7.x / L4T R39.x, the default tested profile is **`9.0-triton-multiarch`**. On Jetson Orin devices running JetPack 6.x / L4T 36.4.x, the default tested profile is **`7.1-samples-multiarch`**. On x86_64, the default profile remains **`8.0-gc-triton-devel`**.
 
-### Pull the base image
+### Jetson Orin Nano: Docker prerequisites
+
+To run DeepStream containers on Jetson without a local DeepStream install:
 
 ```bash
+sudo apt update
+sudo apt install -y docker.io nvidia-container nvidia-l4t-gstreamer
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER
+```
+
+Log out and back in before validating access:
+
+```bash
+docker version
+docker ps
+```
+
+To identify the Jetson software baseline:
+
+```bash
+. /etc/os-release && echo "$NAME $VERSION"
+cat /etc/nv_tegra_release
+```
+
+Use the matching DeepStream generation for Jetson:
+
+- JetPack 7.x / L4T R39.x / Ubuntu 24.04 -> DeepStream 9.0
+- JetPack 6.x / L4T 36.x / Ubuntu 22.04 -> DeepStream 7.1
+
+### Pull the matching base image
+
+```bash
+docker pull nvcr.io/nvidia/deepstream:9.0-triton-multiarch     # Jetson Orin / JetPack 7.x
+docker pull nvcr.io/nvidia/deepstream:7.1-samples-multiarch    # Jetson Orin / JetPack 6.x
 docker pull nvcr.io/nvidia/deepstream:8.0-gc-triton-devel
 ```
 
-### Build project image
+### Prepare Docker runtime
 
 ```bash
 ./scripts/docker/build_docker.sh
 ```
 
+The script auto-selects a Docker target profile from the current host and pulls\nthe matching upstream NGC DeepStream image. On Jetson Orin devices running\nJetPack 7.x / L4T R39.x it resolves to `jetson-ds9.0`; on JetPack 6.x / L4T 36.x\nit resolves to `jetson-ds7.1`; on x86_64 it resolves to `x86-ds8.0`.
+
+To inspect or override the selection:
+
+```bash
+./scripts/docker/build_docker.sh --print-config
+./scripts/docker/build_docker.sh jetson-ds7.1
+./scripts/docker/build_docker.sh x86-ds8.0
+./scripts/docker/build_docker.sh x86-ds9.0
+```
+
+> **Note:** NVIDIA treats Jetson DeepStream containers primarily as deployment images. For Jetson, compile the executable natively on the host against the local DeepStream SDK, then run that host-built binary inside the mounted NGC runtime container.
+
 ### Run interactively (for development/debugging)
 
 ```bash
 xhost +
+# JetPack 7.x / DS 9.0:
 docker run -it --entrypoint /bin/bash \
     --gpus all --rm --network=host --privileged \
     -e DISPLAY=${DISPLAY} \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -v /var/run/docker.sock:/var/run/docker.sock \
-    deepstream-infer-lab:latest
+    -v ${PWD}:/workspace/deep-infer \
+    -w /workspace/deep-infer \
+    nvcr.io/nvidia/deepstream:9.0-triton-multiarch
+
+# JetPack 6.x / DS 7.1:
+docker run -it --entrypoint /bin/bash \
+    --gpus all --rm --network=host --privileged \
+    -e DISPLAY=${DISPLAY} \
+    -v /tmp/.X11-unix:/tmp/.X11-unix \
+    -v ${PWD}:/workspace/deep-infer \
+    -w /workspace/deep-infer \
+    nvcr.io/nvidia/deepstream:7.1-samples-multiarch
 ```
 
 ### Run inference
 
 ```bash
-docker run --rm --gpus all --privileged --network host \
+# First build locally on the host:
+sudo apt update
+sudo apt install -y build-essential cmake ninja-build pkg-config
+chmod +x scripts/docker/build_docker.sh \
+         scripts/docker/build_in_container.sh \
+         scripts/docker/run_yolo_detection.sh \
+         scripts/docker/run_rtsp_stream.sh
+
+# Then pull the matching runtime image:
+./scripts/docker/build_docker.sh jetson-ds9.0   # JetPack 7.x
+# or: ./scripts/docker/build_docker.sh jetson-ds7.1  # JetPack 6.x
+
+# Build inside the mounted NGC container:
+./scripts/docker/build_in_container.sh jetson-ds9.0
+
+# Helper script:
+./scripts/docker/run_yolo_detection.sh jetson-ds9.0
+
+# Equivalent direct docker run:
+docker run --rm --gpus all --privileged --network host --ipc=host \
+    --ulimit memlock=-1 --ulimit stack=67108864 \
     -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,video,graphics \
+    -e DISPLAY=${DISPLAY:-:0} \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
-    -v ${PWD}/data:/app/data \
-    -v ${PWD}/configs:/app/configs \
-    -v ${PWD}/models:/app/models \
-    -v ${PWD}/output:/app/output \
-    deepstream-infer-lab:latest \
-    --source=/app/data/videos/sample.mp4 \
-    --config=/app/configs/yolov8_config.txt \
-    --model_type=yolov8
+    -v ${PWD}:/workspace/deep-infer \
+    -w /workspace/deep-infer \
+    nvcr.io/nvidia/deepstream:9.0-triton-multiarch \
+    /workspace/deep-infer/build/deep-infer \
+      --source=/workspace/deep-infer/data/videos/sample.mp4 \
+      --config=/workspace/deep-infer/configs/yolov8_config.txt \
+      --model_type=yolov8
 ```
+
+If the link step fails with `libheif.so.1` unresolved references to `libde265`
+or `libx265`, rerun `build_in_container.sh`. The script installs NVIDIA's
+optional codec additions when available and also installs the HEIF codec runtime
+packages inside the container before building.
+The runtime helper scripts install the same required media and OpenCV codec
+packages inside the container session before launching the built binary.
+The build helper also passes `-DCUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda` to avoid
+`FindCUDA` detection failures inside the NGC image.
 
 ## Performance Optimization
 
@@ -223,8 +327,23 @@ gst-inspect-1.0 nvstreammux
 deepstream-app --version
 
 # If missing, re-run the DS install script
-sudo /opt/nvidia/deepstream/deepstream-8.0/install.sh
+sudo /opt/nvidia/deepstream/deepstream-9.0/install.sh
 ```
+
+### Issue: `permission denied while trying to connect to the docker API`
+
+Your user is not able to access `/var/run/docker.sock`. Add the user to the
+`docker` group and refresh the session:
+
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
+docker version
+docker ps
+```
+
+If `newgrp docker` is not convenient, log out and back in before retrying the
+DeepStream NGC image pull or any of the helper scripts.
 
 ### Issue: Missing codec / ffmpeg warnings
 
@@ -246,7 +365,18 @@ sudo apt-get install --reinstall libflac8 libmp3lame0 libxvidcore4 ffmpeg
 - Use a smaller model
 - Enable FP16 mode
 
-## Next Steps
+## TODO — JetPack 7.2 / DeepStream 9.0 Migration
+
+- [x] 1. Update CMake search paths for `deepstream-9.0`
+- [x] 2. Update `detect_target_profile()` for L4T R39 → `jetson-ds9.0`
+- [x] 3. Update README, AGENTS.md, Dockerfile for JetPack 7.2 era
+- [x] 4. Install DeepStream 9.0 SDK (`deepstream-9.0_9.0.0-1_arm64.deb` from NGC)
+- [x] 5. Rebuild with `-DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.0`
+- [x] 6. End-to-end inference test on Jetson (video + model)
+- [x] 7. Update GettingStarted guide: DS 8.0 → 9.0 paths and Docker references
+- [x] 8. Verify Docker container flow with `nvcr.io/nvidia/deepstream:9.0-triton-multiarch`
+
+## Future Guides
 
 - [Model Deployment Guide](ModelDeployment.md)
 - [DeepStream Configuration Reference](DeepStreamConfig.md)

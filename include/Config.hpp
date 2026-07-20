@@ -1,5 +1,5 @@
-#ifndef DEEPSTREAM_INFER_LAB_INCLUDE_CONFIG_HPP_
-#define DEEPSTREAM_INFER_LAB_INCLUDE_CONFIG_HPP_
+#ifndef DEEP_INFER_INCLUDE_CONFIG_HPP_
+#define DEEP_INFER_INCLUDE_CONFIG_HPP_
 
 #include <string>
 #include <vector>
@@ -71,4 +71,4 @@ struct Config {
     }
 };
 
-#endif  // DEEPSTREAM_INFER_LAB_INCLUDE_CONFIG_HPP_
+#endif  // DEEP_INFER_INCLUDE_CONFIG_HPP_

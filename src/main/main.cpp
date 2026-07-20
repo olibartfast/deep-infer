@@ -13,7 +13,7 @@ int main(int argc, const char* argv[]) {
     Logger& logger = Logger::GetInstance();
     
     try {
-        logger.Info("=== DeepStream Inference Lab ===");
+        logger.Info("=== Deep Infer ===");
         logger.Info("Starting application...");
         
         // Parse command line arguments
@@ -45,7 +45,7 @@ int main(int argc, const char* argv[]) {
             // Process results here
             size_t detection_count = 0;
             for (const auto& res : result.results) {
-                if (std::holds_alternative<vision_core::Detection>(res)) {
+                if (std::holds_alternative<neuriplo_tasks::Detection>(res)) {
                     detection_count++;
                 }
             }

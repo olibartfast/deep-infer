@@ -1,7 +1,8 @@
-#ifndef DEEPSTREAM_INFER_LAB_INCLUDE_TASK_INTERFACE_HPP_
-#define DEEPSTREAM_INFER_LAB_INCLUDE_TASK_INTERFACE_HPP_
+#ifndef DEEP_INFER_INCLUDE_TASK_INTERFACE_HPP_
+#define DEEP_INFER_INCLUDE_TASK_INTERFACE_HPP_
 
 #include "common.hpp"
+#include <fstream>
 #include <memory>
 
 class TaskInterface {
@@ -11,7 +12,7 @@ class TaskInterface {
   virtual TaskType GetTaskType() = 0;
   
   // Process metadata from DeepStream
-  virtual std::vector<vision_core::Result> ProcessMetadata(
+  virtual std::vector<neuriplo_tasks::Result> ProcessMetadata(
       NvDsFrameMeta* frame_meta,
       const cv::Mat& frame) = 0;
   
@@ -32,4 +33,4 @@ class TaskInterface {
   int input_channels_ = 0;
 };
 
-#endif  // DEEPSTREAM_INFER_LAB_INCLUDE_TASK_INTERFACE_HPP_
+#endif  // DEEP_INFER_INCLUDE_TASK_INTERFACE_HPP_

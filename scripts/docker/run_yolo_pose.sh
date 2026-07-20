@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# Run DeepStream inference with object detection using the upstream NGC runtime image.
-# Usage: ./run_yolo_detection.sh [auto|jetson-ds7.0|jetson-ds7.1|x86-ds8.0|x86-ds9.0|jetson-ds9.0]
-# Requires: NVIDIA driver >= 570.x, nvidia-container-toolkit
+# Run DeepStream YOLO26-pose inference using the upstream NGC runtime image.
+# Requires the binary built by scripts/docker/build_in_container.sh and the
+# yolo26s-pose model exported by scripts/setup/export_models.sh pose.
+#
+# Usage: ./run_yolo_pose.sh [auto|jetson-ds7.0|jetson-ds7.1|x86-ds8.0|x86-ds9.0|jetson-ds9.0]
+# Requires: NVIDIA driver >= 570.x, nvidia-container-toolkit.
 
 set -euo pipefail
 
@@ -25,6 +28,7 @@ docker run --rm \
   --ipc=host \
   --ulimit memlock=-1 \
   --ulimit stack=67108864 \
+  -e NVIDIA_VISIBLE_DEVICES=all \
   -e NVIDIA_DRIVER_CAPABILITIES=compute,utility,video,graphics \
   -e DISPLAY=${DISPLAY:-:0} \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
@@ -34,10 +38,10 @@ docker run --rm \
   /bin/bash -lc "
     ${RUNTIME_SETUP} &&
     exec /workspace/deep-infer/build/deep-infer \
-      --source=/workspace/deep-infer/data/videos/sample.mp4 \
-      --config=/workspace/deep-infer/configs/yolov8_config.txt \
-      --model_type=yolov8 \
-      --labels=/workspace/deep-infer/data/labels/coco.names \
+      --source=/workspace/deep-infer/people-walking.mp4 \
+      --config=/workspace/deep-infer/configs/yolo26_pose_config.txt \
+      --model_type=yolo_pose \
+      --labels=/workspace/deep-infer/data/labels/pose.names \
       --output=/workspace/deep-infer/output \
       --verbose
   "

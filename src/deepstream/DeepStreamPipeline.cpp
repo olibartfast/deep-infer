@@ -1,6 +1,30 @@
 #include "DeepStreamPipeline.hpp"
+#include "TensorPostprocess.hpp"
 #include "utils.hpp"
+
+#include <algorithm>
+#include <cctype>
+#include <filesystem>
+#include <string>
 #include <stdexcept>
+
+namespace {
+constexpr const char* kNvmmMemoryFeature = "memory:NVMM";
+
+// Models whose raw output tensors are post-processed by neuriplo-tasks in the
+// OSD sink probe rather than through DeepStream's object-metadata parsers.
+bool UsesTensorMetaPostprocess(const std::string& model_type) {
+    std::string t;
+    t.reserve(model_type.size());
+    for (char c : model_type) {
+        t.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+    }
+    const bool pose = (t.find("yolo") != std::string::npos) && (t.find("pose") != std::string::npos);
+    const bool rfdetr_seg =
+        (t.find("rfdetr") != std::string::npos) && (t.find("seg") != std::string::npos);
+    return pose || rfdetr_seg;
+}
+}  // namespace
 
 DeepStreamPipeline::DeepStreamPipeline(const Config& config)
     : pipeline_(nullptr)
@@ -10,6 +34,7 @@ DeepStreamPipeline::DeepStreamPipeline(const Config& config)
     , pgie_(nullptr)
     , nvvidconv_(nullptr)
     , nvosd_(nullptr)
+    , egltransform_(nullptr)
     , sink_(nullptr)
     , tracker_(nullptr)
     , analytics_(nullptr)
@@ -17,8 +42,7 @@ DeepStreamPipeline::DeepStreamPipeline(const Config& config)
     , bus_(nullptr)
     , bus_watch_id_(0)
     , config_(config)
-    , logger_(Logger::GetInstance())
-{
+    , logger_(Logger::GetInstance()) {
     gst_init(nullptr, nullptr);
 }
 
@@ -28,118 +52,91 @@ DeepStreamPipeline::~DeepStreamPipeline() {
 
 bool DeepStreamPipeline::Initialize() {
     logger_.Info("Initializing DeepStream pipeline...");
-    
+
     if (!CreateElements()) {
         logger_.Error("Failed to create pipeline elements");
         return false;
     }
-    
+
     if (!ConfigureElements()) {
         logger_.Error("Failed to configure pipeline elements");
         return false;
     }
-    
+
     if (!LinkElements()) {
         logger_.Error("Failed to link pipeline elements");
         return false;
     }
-    
-    // Add probe to get buffers
+
     GstPad* osd_sink_pad = gst_element_get_static_pad(nvosd_, "sink");
     if (!osd_sink_pad) {
         logger_.Error("Failed to get OSD sink pad");
         return false;
     }
-    
-    gst_pad_add_probe(osd_sink_pad, GST_PAD_PROBE_TYPE_BUFFER,
-                     OsdSinkPadBufferProbe, this, nullptr);
+
+    gst_pad_add_probe(
+        osd_sink_pad, GST_PAD_PROBE_TYPE_BUFFER, OsdSinkPadBufferProbe, this, nullptr);
     gst_object_unref(osd_sink_pad);
-    
-    // Create main loop
+
     loop_ = g_main_loop_new(nullptr, FALSE);
-    
-    // Add bus watch
     bus_ = gst_pipeline_get_bus(GST_PIPELINE(pipeline_));
     bus_watch_id_ = gst_bus_add_watch(bus_, BusCall, this);
     gst_object_unref(bus_);
-    
+    bus_ = nullptr;
+
     logger_.Info("DeepStream pipeline initialized successfully");
     return true;
 }
 
 bool DeepStreamPipeline::CreateElements() {
-    // Create pipeline
     pipeline_ = gst_pipeline_new("deepstream-pipeline");
     if (!pipeline_) {
         logger_.Error("Failed to create pipeline");
         return false;
     }
-    
-    // Determine source type and create appropriate element
-    std::string source_type = GetSourceType();
-    
-    if (source_type == "uri") {
-        source_ = gst_element_factory_make("uridecodebin", "uri-source");
-        g_object_set(G_OBJECT(source_), "uri", 
-                    (std::string("file://") + config_.source).c_str(), nullptr);
-    } else if (source_type == "rtsp") {
-        source_ = gst_element_factory_make("rtspsrc", "rtsp-source");
-        g_object_set(G_OBJECT(source_), "location", config_.source.c_str(), nullptr);
-    } else {
-        logger_.Error("Unsupported source type");
-        return false;
-    }
-    
-    if (!source_) {
-        logger_.Error("Failed to create source element");
-        return false;
-    }
-    
-    // Create other elements
+
+    source_ = gst_element_factory_make("uridecodebin", "uri-source");
     streammux_ = gst_element_factory_make("nvstreammux", "stream-muxer");
     pgie_ = gst_element_factory_make("nvinfer", "primary-inference");
     nvvidconv_ = gst_element_factory_make("nvvideoconvert", "nvvideo-converter");
     nvosd_ = gst_element_factory_make("nvdsosd", "nv-onscreendisplay");
-    
-    // Create sink based on output configuration
-    if (config_.show_frame || config_.write_frame) {
+
+    if (config_.show_frame) {
+        egltransform_ = gst_element_factory_make("nvegltransform", "nvvideo-transform");
         sink_ = gst_element_factory_make("nveglglessink", "nvvideo-renderer");
     } else {
         sink_ = gst_element_factory_make("fakesink", "fake-renderer");
     }
-    
-    if (!streammux_ || !pgie_ || !nvvidconv_ || !nvosd_ || !sink_) {
+
+    if (!source_ || !streammux_ || !pgie_ || !nvvidconv_ || !nvosd_ || !sink_) {
         logger_.Error("Failed to create pipeline elements");
         return false;
     }
-    
-    // Create tracker if enabled
-    if (config_.use_tracker) {
-        if (!CreateTracker()) {
-            return false;
-        }
+
+    const std::string source_uri = BuildSourceUri();
+    g_object_set(G_OBJECT(source_), "uri", source_uri.c_str(), nullptr);
+    g_signal_connect(source_, "pad-added", G_CALLBACK(DecodebinPadAdded), this);
+
+    if (config_.use_tracker && !CreateTracker()) {
+        return false;
     }
-    
-    // Create analytics if enabled
-    if (config_.use_analytics) {
-        if (!CreateAnalytics()) {
-            return false;
-        }
+
+    if (config_.use_analytics && !CreateAnalytics()) {
+        return false;
     }
-    
+
     return true;
 }
 
 bool DeepStreamPipeline::CreatePrimaryGIE() {
     if (!config_.config_file.empty()) {
-        g_object_set(G_OBJECT(pgie_), "config-file-path", 
-                    config_.config_file.c_str(), nullptr);
-    } else {
-        logger_.Error("Config file required for primary GIE");
-        return false;
+        g_object_set(
+            G_OBJECT(pgie_), "config-file-path", config_.config_file.c_str(), nullptr);
+        return true;
     }
-    
-    return true;
+
+    logger_.Error("Config file required for primary GIE");
+    return false;
 }
 
 bool DeepStreamPipeline::CreateTracker() {
@@ -148,12 +145,12 @@ bool DeepStreamPipeline::CreateTracker() {
         logger_.Error("Failed to create tracker element");
         return false;
     }
-    
+
     if (!config_.tracker_config.empty()) {
-        g_object_set(G_OBJECT(tracker_), "ll-config-file",
-                    config_.tracker_config.c_str(), nullptr);
+        g_object_set(
+            G_OBJECT(tracker_), "ll-config-file", config_.tracker_config.c_str(), nullptr);
     }
-    
+
     return true;
 }
 
@@ -163,216 +160,323 @@ bool DeepStreamPipeline::CreateAnalytics() {
         logger_.Error("Failed to create analytics element");
         return false;
     }
-    
+
     return true;
 }
 
 bool DeepStreamPipeline::ConfigureElements() {
-    // Configure streammux
-    g_object_set(G_OBJECT(streammux_),
-                "width", config_.input_width,
-                "height", config_.input_height,
-                "batch-size", config_.batch_size,
-                "batched-push-timeout", 4000000,
-                "gpu-id", config_.gpu_id,
-                nullptr);
-    
-    // Configure primary GIE
+    g_object_set(
+        G_OBJECT(streammux_),
+        "width", config_.input_width,
+        "height", config_.input_height,
+        "batch-size", config_.batch_size,
+        "batched-push-timeout", 4000000,
+        "gpu-id", config_.gpu_id,
+        "live-source", IsLiveSource(),
+        nullptr);
+
     if (!CreatePrimaryGIE()) {
         return false;
     }
-    
-    // Configure OSD
-    g_object_set(G_OBJECT(nvosd_),
-                "process-mode", 1,  // GPU mode
-                "display-text", 1,
-                "gpu-id", config_.gpu_id,
-                nullptr);
-    
-    // Configure sink
-    g_object_set(G_OBJECT(sink_),
-                "sync", 0,
-                "async", 0,
-                nullptr);
-    
+
+    // For pose / segmentation models we bypass DeepStream's built-in object
+    // parsers and instead read the raw output tensors (output-tensor-meta=1)
+    // so neuriplo-tasks postprocessors can run in the probe. network-type=100
+    // (custom) is set in the nvinfer config file itself.
+    if (UsesTensorMetaPostprocess(config_.model_type)) {
+        g_object_set(G_OBJECT(pgie_),
+            "output-tensor-meta", TRUE,
+            "gpu-id", config_.gpu_id,
+            nullptr);
+        logger_.Infof("Tensor-meta postprocessing enabled for model_type=%s",
+                      config_.model_type.c_str());
+    }
+
+    g_object_set(
+        G_OBJECT(nvosd_),
+        "process-mode", 1,
+        "display-text", 1,
+        "gpu-id", config_.gpu_id,
+        nullptr);
+
+    g_object_set(G_OBJECT(sink_), "sync", 0, "async", 0, nullptr);
     return true;
 }
 
 bool DeepStreamPipeline::LinkElements() {
-    gst_bin_add_many(GST_BIN(pipeline_),
-                    source_, streammux_, pgie_, nvvidconv_, nvosd_, sink_,
-                    nullptr);
-    
-    // Link elements based on configuration
-    if (config_.use_tracker && tracker_) {
+    gst_bin_add_many(
+        GST_BIN(pipeline_), source_, streammux_, pgie_, nvvidconv_, nvosd_, nullptr);
+
+    if (tracker_) {
         gst_bin_add(GST_BIN(pipeline_), tracker_);
     }
-    
-    if (config_.use_analytics && analytics_) {
+
+    if (analytics_) {
         gst_bin_add(GST_BIN(pipeline_), analytics_);
     }
-    
-    // Link the pipeline
-    // Source -> StreamMux -> PGIE -> [Tracker] -> [Analytics] -> NvVidConv -> OSD -> Sink
-    
-    if (!gst_element_link_many(streammux_, pgie_, nullptr)) {
+
+    if (egltransform_) {
+        gst_bin_add(GST_BIN(pipeline_), egltransform_);
+    }
+
+    gst_bin_add(GST_BIN(pipeline_), sink_);
+
+    if (!gst_element_link(streammux_, pgie_)) {
         logger_.Error("Failed to link streammux and pgie");
         return false;
     }
-    
+
     GstElement* last_element = pgie_;
-    
-    if (config_.use_tracker && tracker_) {
+
+    if (tracker_) {
         if (!gst_element_link(last_element, tracker_)) {
             logger_.Error("Failed to link tracker");
             return false;
         }
         last_element = tracker_;
     }
-    
-    if (config_.use_analytics && analytics_) {
+
+    if (analytics_) {
         if (!gst_element_link(last_element, analytics_)) {
             logger_.Error("Failed to link analytics");
             return false;
         }
         last_element = analytics_;
     }
-    
-    if (!gst_element_link_many(last_element, nvvidconv_, nvosd_, sink_, nullptr)) {
-        logger_.Error("Failed to link remaining elements");
+
+    if (!gst_element_link_many(last_element, nvvidconv_, nvosd_, nullptr)) {
+        logger_.Error("Failed to link nvvidconv and nvosd");
         return false;
     }
-    
+
+    if (egltransform_) {
+        if (!gst_element_link_many(nvosd_, egltransform_, sink_, nullptr)) {
+            logger_.Error("Failed to link display sink chain");
+            return false;
+        }
+    } else if (!gst_element_link(nvosd_, sink_)) {
+        logger_.Error("Failed to link sink");
+        return false;
+    }
+
     return true;
 }
 
 bool DeepStreamPipeline::Run() {
     logger_.Info("Starting DeepStream pipeline...");
-    
-    GstStateChangeReturn ret = gst_element_set_state(pipeline_, GST_STATE_PLAYING);
+
+    const GstStateChangeReturn ret = gst_element_set_state(pipeline_, GST_STATE_PLAYING);
     if (ret == GST_STATE_CHANGE_FAILURE) {
         logger_.Error("Failed to set pipeline to PLAYING state");
         return false;
     }
-    
+
     logger_.Info("Pipeline running...");
     g_main_loop_run(loop_);
-    
     return true;
 }
 
 void DeepStreamPipeline::Stop() {
-    if (pipeline_) {
+    if (loop_ != nullptr && g_main_loop_is_running(loop_)) {
+        g_main_loop_quit(loop_);
+    }
+
+    if (bus_watch_id_ != 0) {
+        g_source_remove(bus_watch_id_);
+        bus_watch_id_ = 0;
+    }
+
+    if (pipeline_ != nullptr) {
         gst_element_set_state(pipeline_, GST_STATE_NULL);
         gst_object_unref(GST_OBJECT(pipeline_));
         pipeline_ = nullptr;
     }
-    
-    if (loop_) {
+
+    if (loop_ != nullptr) {
         g_main_loop_unref(loop_);
         loop_ = nullptr;
     }
-    
-    if (bus_watch_id_) {
-        g_source_remove(bus_watch_id_);
-        bus_watch_id_ = 0;
+}
+
+std::string DeepStreamPipeline::BuildSourceUri() const {
+    if (IsLiveSource()) {
+        return config_.source;
     }
+
+    const std::filesystem::path input_path(config_.source);
+    const std::filesystem::path resolved_path =
+        input_path.is_absolute() ? input_path : std::filesystem::absolute(input_path);
+    return "file://" + resolved_path.string();
+}
+
+bool DeepStreamPipeline::IsLiveSource() const {
+    return GetSourceType() == "rtsp";
 }
 
 std::string DeepStreamPipeline::GetSourceType() const {
-    if (config_.source.find("rtsp://") == 0 || 
-        config_.source.find("rtmp://") == 0) {
+    if (config_.source.find("rtsp://") == 0 || config_.source.find("rtmp://") == 0) {
         return "rtsp";
     }
     return "uri";
 }
 
+void DeepStreamPipeline::DecodebinPadAdded(
+    GstElement* /*decodebin*/, GstPad* pad, gpointer user_data) {
+    auto* pipeline = static_cast<DeepStreamPipeline*>(user_data);
+
+    GstCaps* caps = gst_pad_get_current_caps(pad);
+    if (!caps) {
+        caps = gst_pad_query_caps(pad, nullptr);
+    }
+    if (!caps) {
+        pipeline->logger_.Error("Failed to query source pad caps");
+        return;
+    }
+
+    const GstStructure* structure = gst_caps_get_structure(caps, 0);
+    const gchar* media_type = gst_structure_get_name(structure);
+    if (!media_type || !g_str_has_prefix(media_type, "video/")) {
+        gst_caps_unref(caps);
+        return;
+    }
+
+    GstCapsFeatures* features = gst_caps_get_features(caps, 0);
+    if (!features || !gst_caps_features_contains(features, kNvmmMemoryFeature)) {
+        pipeline->logger_.Error("Decoded source pad does not use NVMM memory");
+        gst_caps_unref(caps);
+        return;
+    }
+
+    GstPad* sink_pad = gst_element_get_request_pad(pipeline->streammux_, "sink_0");
+    if (!sink_pad) {
+        pipeline->logger_.Error("Failed to get nvstreammux sink pad");
+        gst_caps_unref(caps);
+        return;
+    }
+
+    if (gst_pad_is_linked(sink_pad)) {
+        gst_object_unref(sink_pad);
+        gst_caps_unref(caps);
+        return;
+    }
+
+    const GstPadLinkReturn link_result = gst_pad_link(pad, sink_pad);
+    if (link_result != GST_PAD_LINK_OK) {
+        pipeline->logger_.Errorf(
+            "Failed to link decodebin to nvstreammux: %d", static_cast<int>(link_result));
+    }
+
+    gst_object_unref(sink_pad);
+    gst_caps_unref(caps);
+}
+
 GstPadProbeReturn DeepStreamPipeline::OsdSinkPadBufferProbe(
-    GstPad* pad, GstPadProbeInfo* info, gpointer user_data) {
-    
-    DeepStreamPipeline* pipeline = static_cast<DeepStreamPipeline*>(user_data);
-    
-    GstBuffer* buf = GST_PAD_PROBE_INFO_BUFFER(info);
-    NvDsBatchMeta* batch_meta = gst_buffer_get_nvds_batch_meta(buf);
-    
+    GstPad* /*pad*/, GstPadProbeInfo* info, gpointer user_data) {
+    auto* pipeline = static_cast<DeepStreamPipeline*>(user_data);
+
+    GstBuffer* buffer = GST_PAD_PROBE_INFO_BUFFER(info);
+    if (!buffer) {
+        return GST_PAD_PROBE_OK;
+    }
+
+    NvDsBatchMeta* batch_meta = gst_buffer_get_nvds_batch_meta(buffer);
     if (!batch_meta) {
         return GST_PAD_PROBE_OK;
     }
-    
-    // Process each frame in the batch
-    for (NvDsMetaList* l_frame = batch_meta->frame_meta_list; 
-         l_frame != nullptr; l_frame = l_frame->next) {
-        
-        NvDsFrameMeta* frame_meta = (NvDsFrameMeta*)(l_frame->data);
-        
-        // Get surface from buffer
-        NvBufSurface* surface = nullptr;
-        GstMapInfo map_info;
-        
-        if (gst_buffer_map(buf, &map_info, GST_MAP_READ)) {
-            surface = (NvBufSurface*)map_info.data;
-            
-            // Convert to OpenCV Mat if callback is set
-            if (pipeline->frame_callback_ && surface) {
-                // Extract frame data and create Result
-                AppResult result;
-                
-                // Iterate object metadata
-                for (NvDsMetaList* l_obj = frame_meta->obj_meta_list; l_obj != nullptr; l_obj = l_obj->next) {
-                    NvDsObjectMeta* obj_meta = (NvDsObjectMeta*)(l_obj->data);
-                    
-                    vision_core::Detection det;
-                    det.bbox = cv::Rect2f(
-                        obj_meta->rect_params.left,
-                        obj_meta->rect_params.top,
-                        obj_meta->rect_params.width,
-                        obj_meta->rect_params.height
-                    );
-                    det.class_confidence = obj_meta->confidence;
-                    det.class_id = obj_meta->class_id;
-                    
-                    result.results.push_back(det);
-                }
-                
-                pipeline->frame_callback_(result);
-            }
-            
-            gst_buffer_unmap(buf, &map_info);
+
+    const bool tensor_meta_mode = UsesTensorMetaPostprocess(pipeline->config_.model_type);
+
+    for (NvDsMetaList* frame_node = batch_meta->frame_meta_list;
+         frame_node != nullptr;
+         frame_node = frame_node->next) {
+        auto* frame_meta = static_cast<NvDsFrameMeta*>(frame_node->data);
+        if (!pipeline->frame_callback_) {
+            continue;
         }
+
+        AppResult result;
+
+        if (tensor_meta_mode) {
+            // Pose / segmentation: post-process raw nvinfer output tensors.
+            deepinfer::FrameSize in_size{pipeline->config_.input_width,
+                                         pipeline->config_.input_height};
+            deepinfer::FrameSize frame_size{static_cast<int>(frame_meta->source_frame_width),
+                                            static_cast<int>(frame_meta->source_frame_height)};
+            for (NvDsMetaList* user_node = frame_meta->frame_user_meta_list;
+                 user_node != nullptr;
+                 user_node = user_node->next) {
+                auto* user_meta = static_cast<NvDsUserMeta*>(user_node->data);
+                if (user_meta == nullptr || user_meta->base_meta.meta_type != NVDSINFER_TENSOR_OUTPUT_META) {
+                    continue;
+                }
+                auto* tensor_meta =
+                    static_cast<NvDsInferTensorMeta*>(user_meta->user_meta_data);
+                auto partial = deepinfer::PostprocessTensorMeta(
+                    tensor_meta, pipeline->config_.model_type, in_size, frame_size,
+                    pipeline->config_.confidence_threshold, pipeline->config_.nms_threshold);
+                for (auto& r : partial) {
+                    result.results.push_back(std::move(r));
+                }
+            }
+        } else {
+            // Detection: read DeepStream object metadata.
+            for (NvDsMetaList* object_node = frame_meta->obj_meta_list;
+                 object_node != nullptr;
+                 object_node = object_node->next) {
+                auto* object_meta = static_cast<NvDsObjectMeta*>(object_node->data);
+
+                neuriplo_tasks::Detection detection;
+                detection.bbox = neuriplo_tasks::vision::Rect(
+                    static_cast<int>(object_meta->rect_params.left),
+                    static_cast<int>(object_meta->rect_params.top),
+                    static_cast<int>(object_meta->rect_params.width),
+                    static_cast<int>(object_meta->rect_params.height));
+                detection.class_confidence = object_meta->confidence;
+                detection.class_id = object_meta->class_id;
+                result.results.push_back(detection);
+            }
+        }
+
+        pipeline->frame_callback_(result);
     }
-    
+
     return GST_PAD_PROBE_OK;
 }
 
-gboolean DeepStreamPipeline::BusCall(GstBus* bus, GstMessage* msg, gpointer data) {
-    DeepStreamPipeline* pipeline = static_cast<DeepStreamPipeline*>(data);
-    
+gboolean DeepStreamPipeline::BusCall(
+    GstBus* /*bus*/, GstMessage* msg, gpointer data) {
+    auto* pipeline = static_cast<DeepStreamPipeline*>(data);
+
     switch (GST_MESSAGE_TYPE(msg)) {
         case GST_MESSAGE_EOS:
             pipeline->logger_.Info("End of stream");
             g_main_loop_quit(pipeline->loop_);
             break;
-            
+
         case GST_MESSAGE_ERROR: {
-            gchar* debug;
-            GError* error;
+            gchar* debug = nullptr;
+            GError* error = nullptr;
             gst_message_parse_error(msg, &error, &debug);
-            pipeline->logger_.Errorf("Error: %s", error->message);
-            g_free(debug);
-            g_error_free(error);
+            pipeline->logger_.Errorf("Error: %s", error != nullptr ? error->message : "unknown");
+            if (debug != nullptr) {
+                g_free(debug);
+            }
+            if (error != nullptr) {
+                g_error_free(error);
+            }
             g_main_loop_quit(pipeline->loop_);
             break;
         }
-        
+
         default:
             break;
     }
-    
+
     return TRUE;
 }
 
 void DeepStreamPipeline::SetFrameCallback(FrameCallback callback) {
-    frame_callback_ = callback;
+    frame_callback_ = std::move(callback);
 }
 
 void DeepStreamPipeline::SetConfig(const Config& config) {

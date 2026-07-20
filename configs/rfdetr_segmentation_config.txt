@@ -1,0 +1,45 @@
+# RF-DETR Segmentation DeepStream Configuration
+#
+# RF-DETR (Roboflow) instance segmentation model exported to ONNX.
+# Outputs:
+#   - dets   : [batch, num_queries, 4]      (normalized cx,cy,w,h)
+#   - labels : [batch, num_queries, num_classes]
+#   - masks  : [batch, num_queries, H, W]   (per-query mask logits)
+#
+# network-type=100 (custom) + output-tensor-meta=1 keeps the raw output tensors,
+# which the deep-infer OSD probe hands to neuriplo-tasks'
+# RfDetrSegmentationPostprocessor.
+#
+# The RF-DETR export bakes ImageNet normalization into the ONNX graph, so
+# DeepStream only needs to supply RGB pixels scaled to [0,1]. If you re-export
+# without baked normalization, switch to:
+#   net-scale-factor=0.017352073
+#   offsets=2.11790393;2.03571429;1.80444441
+# (i.e. (x/255 - mean)/std encoded as 1/(255*std) and mean/std).
+
+[property]
+gpu-id=0
+
+# Preprocessing: normalization is baked into the exported ONNX.
+net-scale-factor=0.0039215697906911373
+offsets=0.0;0.0;0.0
+model-color-format=0
+
+# Model files (export with export/segmentation/rfdetr/export.py; engine on target GPU).
+onnx-file=../models/rfdetr_seg_small.onnx
+model-engine-file=../models/rfdetr_seg_small.engine
+
+labelfile-path=../data/labels/coco.names
+
+# Inference parameters.
+batch-size=1
+network-mode=2
+num-detected-classes=80
+interval=0
+gie-unique-id=1
+process-mode=1
+maintain-aspect-ratio=1
+
+# Bypass DeepStream object parsing; emit raw output tensors to the probe.
+network-type=100
+output-tensor-meta=1
