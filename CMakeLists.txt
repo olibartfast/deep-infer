@@ -66,6 +66,7 @@ if(DEFINED DEEPSTREAM_DIR AND NOT DEEPSTREAM_DIR STREQUAL "")
 endif()
 
 list(APPEND DEEPSTREAM_SEARCH_DIRS
+    "/opt/nvidia/deepstream/deepstream-9.1"
     "/opt/nvidia/deepstream/deepstream-9.0"
     "/opt/nvidia/deepstream/deepstream-8.0"
     "/opt/nvidia/deepstream/deepstream-7.1"

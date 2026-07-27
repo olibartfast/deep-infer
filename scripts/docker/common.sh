@@ -11,9 +11,9 @@ detect_target_profile() {
     arch="$(uname -m)"
 
     if [[ "${arch}" == "aarch64" && -r /etc/nv_tegra_release ]]; then
-        # L4T R39.x → JetPack 7.x → DeepStream 9.0
+        # L4T R39.x → JetPack 7.x → DeepStream 9.1
         if grep -q 'R39' /etc/nv_tegra_release 2>/dev/null; then
-            echo "jetson-ds9.0"
+            echo "jetson-ds9.1"
             return 0
         fi
         # Older L4T → JetPack 6.x → DeepStream 7.1
@@ -22,7 +22,7 @@ detect_target_profile() {
     fi
 
     if [[ "${arch}" == "x86_64" ]]; then
-        echo "x86-ds8.0"
+        echo "x86-ds9.1"
         return 0
     fi
 
@@ -37,7 +37,7 @@ resolve_target_profile() {
         auto)
             if ! detected_profile="$(detect_target_profile)"; then
                 echo "Unable to detect a supported DeepStream target for this host." >&2
-                echo "Set one of: jetson-ds7.0, jetson-ds7.1, x86-ds8.0, x86-ds9.0, jetson-ds9.0" >&2
+                echo "Set one of: jetson-ds7.0, jetson-ds7.1, x86-ds8.0, x86-ds9.0, jetson-ds9.0, x86-ds9.1, jetson-ds9.1" >&2
                 return 1
             fi
             requested_profile="${detected_profile}"
@@ -69,15 +69,27 @@ resolve_target_profile() {
             DEEPSTREAM_DIR="${DEEPSTREAM_DIR:-/opt/nvidia/deepstream/deepstream-9.0}"
             IMAGE_TAG="${IMAGE_TAG:-x86-ds9.0}"
             ;;
+        x86-ds9.1)
+            DEEPSTREAM_VERSION="${DEEPSTREAM_VERSION:-9.1}"
+            BASE_IMAGE="${BASE_IMAGE:-nvcr.io/nvidia/deepstream:9.1-triton-multiarch}"
+            DEEPSTREAM_DIR="${DEEPSTREAM_DIR:-/opt/nvidia/deepstream/deepstream-9.1}"
+            IMAGE_TAG="${IMAGE_TAG:-x86-ds9.1}"
+            ;;
         jetson-ds9.0)
             DEEPSTREAM_VERSION="${DEEPSTREAM_VERSION:-9.0}"
             BASE_IMAGE="${BASE_IMAGE:-nvcr.io/nvidia/deepstream:9.0-triton-multiarch}"
             DEEPSTREAM_DIR="${DEEPSTREAM_DIR:-/opt/nvidia/deepstream/deepstream-9.0}"
             IMAGE_TAG="${IMAGE_TAG:-jetson-ds9.0}"
             ;;
+        jetson-ds9.1)
+            DEEPSTREAM_VERSION="${DEEPSTREAM_VERSION:-9.1}"
+            BASE_IMAGE="${BASE_IMAGE:-nvcr.io/nvidia/deepstream:9.1-triton-multiarch}"
+            DEEPSTREAM_DIR="${DEEPSTREAM_DIR:-/opt/nvidia/deepstream/deepstream-9.1}"
+            IMAGE_TAG="${IMAGE_TAG:-jetson-ds9.1}"
+            ;;
         *)
             echo "Unsupported target profile: ${requested_profile}" >&2
-            echo "Supported profiles: auto, jetson-ds7.0, jetson-ds7.1, x86-ds8.0, x86-ds9.0, jetson-ds9.0" >&2
+            echo "Supported profiles: auto, jetson-ds7.0, jetson-ds7.1, x86-ds8.0, x86-ds9.0, x86-ds9.1, jetson-ds9.0, jetson-ds9.1" >&2
             return 1
             ;;
     esac

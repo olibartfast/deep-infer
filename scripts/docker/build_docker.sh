@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pull the upstream DeepStream runtime image for this host/profile.
-# Usage: ./build_docker.sh [auto|jetson-ds7.0|jetson-ds7.1|x86-ds8.0|x86-ds9.0|jetson-ds9.0] [--print-config]
+# Usage: ./build_docker.sh [auto|jetson-ds7.0|jetson-ds7.1|x86-ds8.0|x86-ds9.0|x86-ds9.1|jetson-ds9.0|jetson-ds9.1] [--print-config]
 
 set -euo pipefail
 
@@ -13,7 +13,7 @@ PRINT_CONFIG=0
 
 while (($#)); do
     case "$1" in
-        auto|jetson-ds7.0|jetson-ds7.1|x86-ds8.0|x86-ds9.0|jetson-ds9.0)
+        auto|jetson-ds7.0|jetson-ds7.1|x86-ds8.0|x86-ds9.0|x86-ds9.1|jetson-ds9.0|jetson-ds9.1)
             TARGET_PROFILE_ARG="$1"
             ;;
         --print-config)
@@ -21,7 +21,7 @@ while (($#)); do
             ;;
         *)
             echo "Unknown argument: $1" >&2
-            echo "Usage: ./build_docker.sh [auto|jetson-ds7.0|jetson-ds7.1|x86-ds8.0|x86-ds9.0|jetson-ds9.0] [--print-config]" >&2
+            echo "Usage: ./build_docker.sh [auto|jetson-ds7.0|jetson-ds7.1|x86-ds8.0|x86-ds9.0|x86-ds9.1|jetson-ds9.0|jetson-ds9.1] [--print-config]" >&2
             exit 1
             ;;
     esac

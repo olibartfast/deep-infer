@@ -3,7 +3,7 @@
 # Requires the binary built by scripts/docker/build_in_container.sh and the
 # yolo26s-pose model exported by scripts/setup/export_models.sh pose.
 #
-# Usage: ./run_yolo_pose.sh [auto|jetson-ds7.0|jetson-ds7.1|x86-ds8.0|x86-ds9.0|jetson-ds9.0]
+# Usage: ./run_yolo_pose.sh [auto|jetson-ds7.0|jetson-ds7.1|x86-ds8.0|x86-ds9.0|x86-ds9.1|jetson-ds9.0|jetson-ds9.1]
 # Requires: NVIDIA driver >= 570.x, nvidia-container-toolkit.
 
 set -euo pipefail
