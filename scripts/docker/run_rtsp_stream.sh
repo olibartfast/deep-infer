@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run DeepStream with RTSP stream using the upstream NGC runtime image.
-# Usage: ./run_rtsp_stream.sh <rtsp_url> [auto|jetson-ds7.0|jetson-ds7.1|x86-ds8.0|x86-ds9.0|jetson-ds9.0]
+# Usage: ./run_rtsp_stream.sh <rtsp_url> [auto|jetson-ds7.0|jetson-ds7.1|x86-ds8.0|x86-ds9.0|x86-ds9.1|jetson-ds9.0|jetson-ds9.1]
 # Requires: NVIDIA driver >= 570.x, nvidia-container-toolkit
 
 set -euo pipefail
