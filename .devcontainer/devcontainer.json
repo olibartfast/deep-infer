@@ -4,7 +4,7 @@
     "dockerfile": "Dockerfile",
     "context": "..",
     "args": {
-      "DEEPSTREAM_VERSION": "7.1"
+      "DEEPSTREAM_VERSION": "9.1"
     }
   },
 
@@ -35,12 +35,12 @@
         "cmake.buildDirectory": "${workspaceFolder}/build",
         "cmake.configureArgs": [
           "-DCMAKE_BUILD_TYPE=Debug",
-          "-DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-7.1"
+          "-DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.1"
         ],
         "C_Cpp.default.includePath": [
           "${workspaceFolder}/include",
           "${workspaceFolder}/src",
-          "/opt/nvidia/deepstream/deepstream-7.1/sources/includes",
+          "/opt/nvidia/deepstream/deepstream-9.1/sources/includes",
           "/usr/local/cuda/include"
         ]
       }

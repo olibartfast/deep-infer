@@ -10,6 +10,11 @@ jobs:
     name: Build
     runs-on: ubuntu-22.04
     container:
+      # Build-only toolchain image for the DeepStream-less stub pipeline.
+      # Intentionally older than CUDA_MIN_VERSION (versions.env) and the
+      # DeepStream baseline; CI disables toolchain enforcement for this
+      # build-only image because it is below the DeepStream baseline, and CI
+      # does not build the DeepStream pipeline.
       image: nvidia/cuda:12.6.2-devel-ubuntu22.04
 
     steps:
@@ -33,7 +38,10 @@ jobs:
           rm -rf /var/lib/apt/lists/*
 
       - name: Configure
-        run: cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release
+        run: cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release -DDEEPINFER_ENFORCE_TOOLCHAIN=OFF
+
+      - name: Check dependency pins
+        run: bash scripts/check_dependency_pins.sh
 
       - name: Build
         run: cmake --build build --parallel

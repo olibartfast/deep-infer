@@ -9,8 +9,9 @@ GStreamer pipeline for file, camera, and RTSP inputs and supports optional
 tracking, analytics, display, and frame output.
 
 Model and result types come from
-[neuriplo-tasks](https://github.com/olibartfast/neuriplo-tasks), which CMake
-fetches automatically during configuration.
+[neuriplo-tasks](https://github.com/olibartfast/neuriplo-tasks), pinned to
+`v0.8.2` in [versions.env](versions.env), which CMake fetches automatically
+during configuration.
 
 ## Supported platforms
 
@@ -70,6 +71,46 @@ CUDA is required for every build. DeepStream is optional at configure time:
 without it, CMake builds a stub executable that supports `--help` and reports
 the missing runtime SDK clearly. This keeps ordinary CI builds independent of
 a local DeepStream installation.
+
+### Dependency versions
+
+[versions.env](versions.env) at the repository root is the single source of
+truth for third-party dependency versions and base images. It is plain
+`KEY=VALUE`, consumed by both CMake and the shell scripts. The pinned version
+of the `neuriplo-tasks` dependency is `v0.8.2`.
+
+Overrides follow a simple precedence order, per value:
+
+1. An explicit CMake cache entry (`-D<KEY>=...`) wins.
+2. Otherwise, an environment variable named `<KEY>` is used.
+3. Otherwise, the value from `versions.env` applies.
+
+Values from `versions.env` are never written to the CMake cache, so editing
+`versions.env` takes effect on the next configure. The shell scripts in
+`scripts/docker/` honor environment overrides the same way, using the
+`${VAR:-<pinned value>}` form.
+
+### Toolchain enforcement
+
+By default, CMake requires the pinned `CUDA_MIN_VERSION`, `OPENCV_MIN_VERSION`,
+and `GSTREAMER_VERSION` minimums from `versions.env`. Set
+`-DDEEPINFER_ENFORCE_TOOLCHAIN=OFF` for stub-only builds whose toolchain is
+below the DeepStream baseline (CI does exactly this for its build-only image);
+the `CMAKE_MIN_VERSION` check always remains in force.
+
+### Offline builds
+
+To build without network access, point CMake at a pre-provisioned
+`neuriplo-tasks` checkout instead of letting `FetchContent` clone it:
+
+```bash
+cmake -S . -B build -GNinja \
+  -DFETCHCONTENT_SOURCE_DIR_NEURIPLO-TASKS=/path/to/neuriplo-tasks \
+  -DFETCHCONTENT_FULLY_DISCONNECTED=ON
+```
+
+`FETCHCONTENT_FULLY_DISCONNECTED=ON` is optional and additionally prevents
+CMake from attempting any download steps.
 
 ## Install DeepStream 9.1
 

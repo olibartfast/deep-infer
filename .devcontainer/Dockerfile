@@ -1,4 +1,4 @@
-ARG DEEPSTREAM_VERSION=7.1
+ARG DEEPSTREAM_VERSION=9.1
 FROM nvcr.io/nvidia/deepstream:${DEEPSTREAM_VERSION}-triton-multiarch
 
 # Install dependencies
