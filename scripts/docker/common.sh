@@ -1,5 +1,41 @@
 #!/usr/bin/env bash
 
+_COMMON_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_DEEP_INFER_ROOT="$(cd "${_COMMON_SCRIPT_DIR}/../.." && pwd)"
+
+_DEEP_INFER_VERSIONS_ENV="${_DEEP_INFER_ROOT}/versions.env"
+
+# Load pinned KEY=VALUE defaults without evaluating the file. A file value is
+# applied only when the same-named variable is unset or empty, so environment
+# overrides take precedence.
+load_dependency_pins() {
+    local file="$1" line key value
+    if [[ ! -f "${file}" ]]; then
+        echo "Missing ${file}: pinned versions file is required." >&2
+        return 1
+    fi
+    while IFS= read -r line || [[ -n "${line}" ]]; do
+        [[ -z "${line}" || "${line}" == \#* ]] && continue
+        if [[ ! "${line}" =~ ^([A-Za-z_][A-Za-z0-9_]*)=([^[:space:]]+)$ ]]; then
+            echo "Malformed line in ${file}: ${line}" >&2
+            return 1
+        fi
+        key="${BASH_REMATCH[1]}"
+        value="${BASH_REMATCH[2]}"
+        case "${value}" in
+            *'$'* | *'`'* | *'"'* | *"'"*)
+                echo "Unsafe value in ${file}: ${line}" >&2
+                return 1
+                ;;
+        esac
+        if [[ -z "${!key:-}" ]]; then
+            printf -v "${key}" '%s' "${value}"
+        fi
+    done < "${file}"
+}
+
+load_dependency_pins "${_DEEP_INFER_VERSIONS_ENV}" || { return 1 2>/dev/null || exit 1; }
+
 repo_root() {
     local script_dir
     script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -44,47 +80,49 @@ resolve_target_profile() {
             ;;
     esac
 
+    local derived_ds_version="${requested_profile##*-ds}"
+
     case "${requested_profile}" in
         jetson-ds7.0)
-            DEEPSTREAM_VERSION="${DEEPSTREAM_VERSION:-7.0}"
-            BASE_IMAGE="${BASE_IMAGE:-nvcr.io/nvidia/deepstream:7.0-triton-multiarch}"
-            DEEPSTREAM_DIR="${DEEPSTREAM_DIR:-/opt/nvidia/deepstream/deepstream-7.0}"
+            DEEPSTREAM_VERSION="${DEEPSTREAM_VERSION:-${derived_ds_version}}"
+            BASE_IMAGE="${BASE_IMAGE:-${NGC_IMAGE_JETSON_DS7_0}}"
+            DEEPSTREAM_DIR="${DEEPSTREAM_DIR:-${DEEPSTREAM_INSTALL_ROOT}/deepstream-${DEEPSTREAM_VERSION}}"
             IMAGE_TAG="${IMAGE_TAG:-jetson-ds7.0}"
             ;;
         jetson-ds7.1)
-            DEEPSTREAM_VERSION="${DEEPSTREAM_VERSION:-7.1}"
-            BASE_IMAGE="${BASE_IMAGE:-nvcr.io/nvidia/deepstream:7.1-samples-multiarch}"
-            DEEPSTREAM_DIR="${DEEPSTREAM_DIR:-/opt/nvidia/deepstream/deepstream-7.1}"
+            DEEPSTREAM_VERSION="${DEEPSTREAM_VERSION:-${derived_ds_version}}"
+            BASE_IMAGE="${BASE_IMAGE:-${NGC_IMAGE_JETSON_DS7_1}}"
+            DEEPSTREAM_DIR="${DEEPSTREAM_DIR:-${DEEPSTREAM_INSTALL_ROOT}/deepstream-${DEEPSTREAM_VERSION}}"
             IMAGE_TAG="${IMAGE_TAG:-jetson-ds7.1}"
             ;;
         x86-ds8.0)
-            DEEPSTREAM_VERSION="${DEEPSTREAM_VERSION:-8.0}"
-            BASE_IMAGE="${BASE_IMAGE:-nvcr.io/nvidia/deepstream:8.0-gc-triton-devel}"
-            DEEPSTREAM_DIR="${DEEPSTREAM_DIR:-/opt/nvidia/deepstream/deepstream-8.0}"
+            DEEPSTREAM_VERSION="${DEEPSTREAM_VERSION:-${derived_ds_version}}"
+            BASE_IMAGE="${BASE_IMAGE:-${NGC_IMAGE_X86_DS8_0}}"
+            DEEPSTREAM_DIR="${DEEPSTREAM_DIR:-${DEEPSTREAM_INSTALL_ROOT}/deepstream-${DEEPSTREAM_VERSION}}"
             IMAGE_TAG="${IMAGE_TAG:-x86-ds8.0}"
             ;;
         x86-ds9.0)
-            DEEPSTREAM_VERSION="${DEEPSTREAM_VERSION:-9.0}"
-            BASE_IMAGE="${BASE_IMAGE:-nvcr.io/nvidia/deepstream:9.0-triton-multiarch}"
-            DEEPSTREAM_DIR="${DEEPSTREAM_DIR:-/opt/nvidia/deepstream/deepstream-9.0}"
+            DEEPSTREAM_VERSION="${DEEPSTREAM_VERSION:-${derived_ds_version}}"
+            BASE_IMAGE="${BASE_IMAGE:-${NGC_IMAGE_X86_DS9_0}}"
+            DEEPSTREAM_DIR="${DEEPSTREAM_DIR:-${DEEPSTREAM_INSTALL_ROOT}/deepstream-${DEEPSTREAM_VERSION}}"
             IMAGE_TAG="${IMAGE_TAG:-x86-ds9.0}"
             ;;
         x86-ds9.1)
-            DEEPSTREAM_VERSION="${DEEPSTREAM_VERSION:-9.1}"
-            BASE_IMAGE="${BASE_IMAGE:-nvcr.io/nvidia/deepstream:9.1-triton-multiarch}"
-            DEEPSTREAM_DIR="${DEEPSTREAM_DIR:-/opt/nvidia/deepstream/deepstream-9.1}"
+            DEEPSTREAM_VERSION="${DEEPSTREAM_VERSION:-${derived_ds_version}}"
+            BASE_IMAGE="${BASE_IMAGE:-${NGC_IMAGE_X86_DS9_1}}"
+            DEEPSTREAM_DIR="${DEEPSTREAM_DIR:-${DEEPSTREAM_INSTALL_ROOT}/deepstream-${DEEPSTREAM_VERSION}}"
             IMAGE_TAG="${IMAGE_TAG:-x86-ds9.1}"
             ;;
         jetson-ds9.0)
-            DEEPSTREAM_VERSION="${DEEPSTREAM_VERSION:-9.0}"
-            BASE_IMAGE="${BASE_IMAGE:-nvcr.io/nvidia/deepstream:9.0-triton-multiarch}"
-            DEEPSTREAM_DIR="${DEEPSTREAM_DIR:-/opt/nvidia/deepstream/deepstream-9.0}"
+            DEEPSTREAM_VERSION="${DEEPSTREAM_VERSION:-${derived_ds_version}}"
+            BASE_IMAGE="${BASE_IMAGE:-${NGC_IMAGE_JETSON_DS9_0}}"
+            DEEPSTREAM_DIR="${DEEPSTREAM_DIR:-${DEEPSTREAM_INSTALL_ROOT}/deepstream-${DEEPSTREAM_VERSION}}"
             IMAGE_TAG="${IMAGE_TAG:-jetson-ds9.0}"
             ;;
         jetson-ds9.1)
-            DEEPSTREAM_VERSION="${DEEPSTREAM_VERSION:-9.1}"
-            BASE_IMAGE="${BASE_IMAGE:-nvcr.io/nvidia/deepstream:9.1-triton-multiarch}"
-            DEEPSTREAM_DIR="${DEEPSTREAM_DIR:-/opt/nvidia/deepstream/deepstream-9.1}"
+            DEEPSTREAM_VERSION="${DEEPSTREAM_VERSION:-${derived_ds_version}}"
+            BASE_IMAGE="${BASE_IMAGE:-${NGC_IMAGE_JETSON_DS9_1}}"
+            DEEPSTREAM_DIR="${DEEPSTREAM_DIR:-${DEEPSTREAM_INSTALL_ROOT}/deepstream-${DEEPSTREAM_VERSION}}"
             IMAGE_TAG="${IMAGE_TAG:-jetson-ds9.1}"
             ;;
         *)

@@ -2,6 +2,33 @@ cmake_minimum_required(VERSION 3.19)
 
 project(deep-infer)
 
+# ---------------------------------------------------------------------------
+# Dependency versions (single source of truth)
+# ---------------------------------------------------------------------------
+# cmake/LoadDependencyVersions.cmake parses versions.env into the pin
+# variables (NEURIPLO_TASKS_*, DEEPSTREAM_*, *_MIN_VERSION, GSTREAMER_VERSION
+# ...) honoring -D cache and environment overrides. Note: TENSORRT_MIN_VERSION
+# is informational only -- this project has no TensorRT discovery logic.
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/LoadDependencyVersions.cmake")
+
+# Require the pinned CUDA/OpenCV/GStreamer minimums; disable for stub-only
+# builds whose toolchain is below the DeepStream baseline (e.g. CI).
+option(DEEPINFER_ENFORCE_TOOLCHAIN "Require the pinned CUDA/OpenCV/GStreamer minimums; disable for stub-only builds" ON)
+
+# The loaded module is authoritative for the minimum CMake version, matching
+# versions.env's CMAKE_MIN_VERSION pin.
+if(CMAKE_VERSION VERSION_LESS CMAKE_MIN_VERSION)
+    message(FATAL_ERROR
+        "CMake ${CMAKE_VERSION} is too old; deep-infer requires "
+        "CMake >= ${CMAKE_MIN_VERSION} (CMAKE_MIN_VERSION in versions.env).")
+endif()
+
+if(NOT CMAKE_MIN_VERSION VERSION_EQUAL CMAKE_MINIMUM_REQUIRED_VERSION)
+    message(FATAL_ERROR
+        "CMAKE_MIN_VERSION (${CMAKE_MIN_VERSION}) must match the "
+        "cmake_minimum_required value (${CMAKE_MINIMUM_REQUIRED_VERSION}) in CMakeLists.txt.")
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -12,13 +39,13 @@ option(WITH_SHOW_FRAME  "Enable frame display"           OFF)
 option(WITH_WRITE_FRAME "Enable frame writing to disk"   ON)
 option(BUILD_TESTING    "Build tests"                    OFF)
 
+set(DEEP_INFER_COMPILE_DEFINITIONS "")
 if(WITH_SHOW_FRAME)
-    add_definitions(-DSHOW_FRAME)
+    list(APPEND DEEP_INFER_COMPILE_DEFINITIONS SHOW_FRAME)
     message(STATUS "Show frame: enabled")
 endif()
-
 if(WITH_WRITE_FRAME)
-    add_definitions(-DWRITE_FRAME)
+    list(APPEND DEEP_INFER_COMPILE_DEFINITIONS WRITE_FRAME)
     message(STATUS "Write frame: enabled")
 endif()
 
@@ -31,8 +58,19 @@ if((NOT DEFINED CUDA_TOOLKIT_ROOT_DIR OR CUDA_TOOLKIT_ROOT_DIR STREQUAL "")
         "CUDA toolkit root directory" FORCE)
 endif()
 
-find_package(OpenCV REQUIRED)
+if(DEEPINFER_ENFORCE_TOOLCHAIN)
+    find_package(OpenCV ${OPENCV_MIN_VERSION} REQUIRED)
+else()
+    find_package(OpenCV REQUIRED)
+endif()
 find_package(CUDA   REQUIRED)
+
+if(DEEPINFER_ENFORCE_TOOLCHAIN AND CUDA_VERSION VERSION_LESS CUDA_MIN_VERSION)
+    message(FATAL_ERROR
+        "CUDA ${CUDA_VERSION} is too old; deep-infer requires "
+        "CUDA >= ${CUDA_MIN_VERSION} (CUDA_MIN_VERSION in versions.env).")
+endif()
+
 find_package(PkgConfig REQUIRED)
 
 # OpenCV's libtiff depends on JBIG (jbg_* symbols). Some base images do not
@@ -42,7 +80,11 @@ find_library(JBIG_STATIC_LIB
     NAMES libjbig.a
     PATHS /usr/lib/x86_64-linux-gnu /usr/lib/aarch64-linux-gnu /usr/lib /usr/lib64)
 
-pkg_check_modules(GSTREAMER       REQUIRED gstreamer-1.0)
+if(DEEPINFER_ENFORCE_TOOLCHAIN)
+    pkg_check_modules(GSTREAMER       REQUIRED "gstreamer-1.0>=${GSTREAMER_VERSION}")
+else()
+    pkg_check_modules(GSTREAMER       REQUIRED gstreamer-1.0)
+endif()
 pkg_check_modules(GSTREAMER_VIDEO REQUIRED gstreamer-video-1.0)
 pkg_check_modules(GLIB            REQUIRED glib-2.0)
 
@@ -52,8 +94,9 @@ pkg_check_modules(GLIB            REQUIRED glib-2.0)
 include(FetchContent)
 FetchContent_Declare(
     neuriplo-tasks
-    GIT_REPOSITORY https://github.com/olibartfast/neuriplo-tasks.git
-    GIT_TAG        master
+    GIT_REPOSITORY ${NEURIPLO_TASKS_REPO}
+    GIT_TAG        ${NEURIPLO_TASKS_VERSION}
+    GIT_SHALLOW    TRUE
 )
 FetchContent_MakeAvailable(neuriplo-tasks)
 
@@ -66,8 +109,8 @@ if(DEFINED DEEPSTREAM_DIR AND NOT DEEPSTREAM_DIR STREQUAL "")
 endif()
 
 list(APPEND DEEPSTREAM_SEARCH_DIRS
-    "/opt/nvidia/deepstream/deepstream-9.1"
-    "/opt/nvidia/deepstream/deepstream-9.0"
+    "${DEEPSTREAM_INSTALL_ROOT}/deepstream-${DEEPSTREAM_BASELINE_VERSION}"
+    "${DEEPSTREAM_INSTALL_ROOT}/deepstream-${DEEPSTREAM_FALLBACK_VERSION}"
     "/opt/nvidia/deepstream/deepstream-8.0"
     "/opt/nvidia/deepstream/deepstream-7.1"
     "/opt/nvidia/deepstream/deepstream-7.0"
@@ -213,6 +256,7 @@ endif()
 target_compile_definitions(${PROJECT_NAME}
     PRIVATE
         HAVE_DEEPSTREAM=$<BOOL:${DEEPSTREAM_FOUND}>
+        ${DEEP_INFER_COMPILE_DEFINITIONS}
 )
 
 target_compile_options(${PROJECT_NAME}
