@@ -1,13 +1,14 @@
 # Sample build commands:
-#   x86_64:  docker build --build-arg BASE_IMAGE=nvcr.io/nvidia/deepstream:8.0-gc-triton-devel -t deep-infer .
+#   x86_64:  docker build --build-arg BASE_IMAGE=nvcr.io/nvidia/deepstream:9.1-triton-multiarch -t deep-infer .
 #   Jetson:  docker build --build-arg BASE_IMAGE=nvcr.io/nvidia/deepstream:9.0-triton-multiarch --build-arg DEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.0 -t deep-infer .
 
-ARG BASE_IMAGE=nvcr.io/nvidia/deepstream:8.0-gc-triton-devel
+# The docker scripts pass these build args sourced from versions.env.
+ARG BASE_IMAGE=nvcr.io/nvidia/deepstream:9.1-triton-multiarch
 FROM ${BASE_IMAGE}
 
 ARG BASE_IMAGE
-ARG DEEPSTREAM_VERSION=8.0
-ARG DEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-8.0
+ARG DEEPSTREAM_VERSION=9.1
+ARG DEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.1
 
 # Install dependencies
 # DeepStream containers do not ship every multimedia codec package by default.
