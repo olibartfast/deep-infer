@@ -23,6 +23,12 @@ if(CMAKE_VERSION VERSION_LESS CMAKE_MIN_VERSION)
         "CMake >= ${CMAKE_MIN_VERSION} (CMAKE_MIN_VERSION in versions.env).")
 endif()
 
+if(NOT CMAKE_MIN_VERSION VERSION_EQUAL CMAKE_MINIMUM_REQUIRED_VERSION)
+    message(FATAL_ERROR
+        "CMAKE_MIN_VERSION (${CMAKE_MIN_VERSION}) must match the "
+        "cmake_minimum_required value (${CMAKE_MINIMUM_REQUIRED_VERSION}) in CMakeLists.txt.")
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -33,13 +39,13 @@ option(WITH_SHOW_FRAME  "Enable frame display"           OFF)
 option(WITH_WRITE_FRAME "Enable frame writing to disk"   ON)
 option(BUILD_TESTING    "Build tests"                    OFF)
 
+set(DEEP_INFER_COMPILE_DEFINITIONS "")
 if(WITH_SHOW_FRAME)
-    add_definitions(-DSHOW_FRAME)
+    list(APPEND DEEP_INFER_COMPILE_DEFINITIONS SHOW_FRAME)
     message(STATUS "Show frame: enabled")
 endif()
-
 if(WITH_WRITE_FRAME)
-    add_definitions(-DWRITE_FRAME)
+    list(APPEND DEEP_INFER_COMPILE_DEFINITIONS WRITE_FRAME)
     message(STATUS "Write frame: enabled")
 endif()
 
@@ -250,6 +256,7 @@ endif()
 target_compile_definitions(${PROJECT_NAME}
     PRIVATE
         HAVE_DEEPSTREAM=$<BOOL:${DEEPSTREAM_FOUND}>
+        ${DEEP_INFER_COMPILE_DEFINITIONS}
 )
 
 target_compile_options(${PROJECT_NAME}

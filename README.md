@@ -88,7 +88,9 @@ Overrides follow a simple precedence order, per value:
 Values from `versions.env` are never written to the CMake cache, so editing
 `versions.env` takes effect on the next configure. The shell scripts in
 `scripts/docker/` honor environment overrides the same way, using the
-`${VAR:-<pinned value>}` form.
+`${VAR:-<pinned value>}` form: for the docker scripts, an environment
+variable of the same name wins over the `versions.env` value, which acts as
+the default.
 
 ### Toolchain enforcement
 

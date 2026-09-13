@@ -26,6 +26,19 @@ Status values: `idea` · `planned` · `in progress` · `done` · `blocked` · `d
 - Spec: `specs/2026-09-13-dependency-contract-hardening/`
 - Branch: `develop`
 
+## Phase 1c — Review remediation (Qodo PR #3)
+
+- Status: done — see `specs/2026-09-13-review-remediation/validation.md`
+  (`RESULT: PASS (75 ok, 0 skipped)`)
+- Outcome: the shell loader respects environment overrides without evaluating
+  `versions.env`; the checker no longer sources or hardcodes the pin and
+  validates the tested checkout; CMake uses target-scoped definitions and
+  reconciles its minimum.
+- Proves: external review findings are folded back into the contract and
+  acceptance suite.
+- Spec: `specs/2026-09-13-review-remediation/`
+- Branch: `feat/dependency-version-env`
+
 ## Phase 2 — Sync consumers and verify the 0.8.x integration
 
 - Status: planned

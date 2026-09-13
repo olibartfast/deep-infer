@@ -3,12 +3,38 @@
 _COMMON_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _DEEP_INFER_ROOT="$(cd "${_COMMON_SCRIPT_DIR}/../.." && pwd)"
 
-if [[ ! -f "${_DEEP_INFER_ROOT}/versions.env" ]]; then
-    echo "Missing ${_DEEP_INFER_ROOT}/versions.env: pinned versions file is required." >&2
-    return 1 2>/dev/null || exit 1
-fi
-# shellcheck source=../../versions.env
-source "${_DEEP_INFER_ROOT}/versions.env"
+_DEEP_INFER_VERSIONS_ENV="${_DEEP_INFER_ROOT}/versions.env"
+
+# Load pinned KEY=VALUE defaults without evaluating the file. A file value is
+# applied only when the same-named variable is unset or empty, so environment
+# overrides take precedence.
+load_dependency_pins() {
+    local file="$1" line key value
+    if [[ ! -f "${file}" ]]; then
+        echo "Missing ${file}: pinned versions file is required." >&2
+        return 1
+    fi
+    while IFS= read -r line || [[ -n "${line}" ]]; do
+        [[ -z "${line}" || "${line}" == \#* ]] && continue
+        if [[ ! "${line}" =~ ^([A-Za-z_][A-Za-z0-9_]*)=([^[:space:]]+)$ ]]; then
+            echo "Malformed line in ${file}: ${line}" >&2
+            return 1
+        fi
+        key="${BASH_REMATCH[1]}"
+        value="${BASH_REMATCH[2]}"
+        case "${value}" in
+            *'$'* | *'`'* | *'"'* | *"'"*)
+                echo "Unsafe value in ${file}: ${line}" >&2
+                return 1
+                ;;
+        esac
+        if [[ -z "${!key:-}" ]]; then
+            printf -v "${key}" '%s' "${value}"
+        fi
+    done < "${file}"
+}
+
+load_dependency_pins "${_DEEP_INFER_VERSIONS_ENV}" || { return 1 2>/dev/null || exit 1; }
 
 repo_root() {
     local script_dir

@@ -18,8 +18,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 VERSIONS_ENV="${ROOT_DIR}/versions.env"
 
-EXPECTED_NEURIPLO_VERSION="v0.8.2"
-
 PASS=0
 FAIL=0
 SKIP=0
@@ -41,21 +39,40 @@ if [[ ! -f "${VERSIONS_ENV}" ]]; then
 fi
 pass "versions.env exists"
 
+# Parse into a map without evaluating the file. Malformed content is rejected
+# before any value is consumed.
+declare -A PINS
 FORMAT_OK=1
 while IFS= read -r line || [[ -n "${line}" ]]; do
     [[ -z "${line}" || "${line}" == \#* ]] && continue
-    if [[ ! "${line}" =~ ^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+$ ]]; then
+    if [[ ! "${line}" =~ ^([A-Za-z_][A-Za-z0-9_]*)=([^[:space:]]+)$ ]]; then
         fail "line is not plain KEY=VALUE: ${line}"
         FORMAT_OK=0
+        continue
     fi
-    case "${line}" in
+    key="${BASH_REMATCH[1]}"
+    value="${BASH_REMATCH[2]}"
+    case "${value}" in
         *'$'* | *'`'* | *'"'* | *"'"*)
-            fail "line uses shell syntax/quoting: ${line}"
+            fail "value uses shell syntax/quoting: ${line}"
             FORMAT_OK=0
+            continue
             ;;
     esac
+    PINS["${key}"]="${value}"
 done <"${VERSIONS_ENV}"
-[[ "${FORMAT_OK}" -eq 1 ]] && pass "plain KEY=VALUE, no shell evaluation"
+
+if [[ "${FORMAT_OK}" -ne 1 ]]; then
+    printf '\nRESULT: FAIL (%d failed; refusing to consume malformed versions.env)\n' "${FAIL}"
+    exit 1
+fi
+pass "plain KEY=VALUE, no shell evaluation"
+
+# Expose validated values as shell variables (non-evaluating; every key and
+# value was checked above).
+for key in "${!PINS[@]}"; do
+    printf -v "${key}" '%s' "${PINS[${key}]}"
+done
 
 REQUIRED_KEYS=(
     NEURIPLO_TASKS_REPO NEURIPLO_TASKS_VERSION
@@ -69,23 +86,18 @@ REQUIRED_KEYS=(
     CI_CUDA_IMAGE
 )
 
-# shellcheck disable=SC1090
-set -a
-source "${VERSIONS_ENV}"
-set +a
-
 for key in "${REQUIRED_KEYS[@]}"; do
-    if [[ -n "${!key:-}" ]]; then
+    if [[ -n "${PINS[${key}]:-}" ]]; then
         pass "pins ${key}"
     else
         fail "missing required key ${key}"
     fi
 done
 
-if [[ "${NEURIPLO_TASKS_VERSION:-}" == "${EXPECTED_NEURIPLO_VERSION}" ]]; then
-    pass "neuriplo-tasks pinned to ${EXPECTED_NEURIPLO_VERSION}"
+if [[ "${NEURIPLO_TASKS_VERSION:-}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    pass "neuriplo-tasks pinned to release tag ${NEURIPLO_TASKS_VERSION}"
 else
-    fail "neuriplo-tasks version is '${NEURIPLO_TASKS_VERSION:-unset}', expected ${EXPECTED_NEURIPLO_VERSION}"
+    fail "neuriplo-tasks version '${NEURIPLO_TASKS_VERSION:-unset}' is not a release tag (vX.Y.Z)"
 fi
 
 # ---------------------------------------------------------------------------
@@ -161,6 +173,21 @@ if grep -q 'DEEPINFER_ENFORCE_TOOLCHAIN' "${cmake_file}"; then
 else
     fail "CMakeLists.txt does not declare DEEPINFER_ENFORCE_TOOLCHAIN"
 fi
+if grep -q 'add_definitions' "${cmake_file}"; then
+    fail "CMakeLists.txt still uses global add_definitions"
+else
+    pass "CMakeLists.txt has no global add_definitions"
+fi
+if grep -q 'target_compile_definitions' "${cmake_file}"; then
+    pass "CMakeLists.txt uses target_compile_definitions"
+else
+    fail "CMakeLists.txt does not use target_compile_definitions"
+fi
+if grep -q 'CMAKE_MINIMUM_REQUIRED_VERSION' "${cmake_file}"; then
+    pass "CMakeLists.txt reconciles CMAKE_MIN_VERSION via CMAKE_MINIMUM_REQUIRED_VERSION"
+else
+    fail "CMakeLists.txt does not reconcile CMAKE_MIN_VERSION"
+fi
 
 if command -v cmake >/dev/null 2>&1; then
     probe="$(mktemp)"
@@ -219,9 +246,19 @@ section "shell"
 
 common_sh="${ROOT_DIR}/scripts/docker/common.sh"
 if grep -q 'versions.env' "${common_sh}"; then
-    pass "common.sh sources versions.env"
+    pass "common.sh reads versions.env"
 else
-    fail "common.sh does not source versions.env"
+    fail "common.sh does not read versions.env"
+fi
+if grep -qE '^[[:space:]]*(source|\.)[[:space:]]+.*versions\.env' "${common_sh}"; then
+    fail "common.sh sources versions.env (must parse it non-evaluatingly)"
+else
+    pass "common.sh does not source versions.env"
+fi
+if grep -q 'printf -v' "${common_sh}"; then
+    pass "common.sh uses a non-evaluating loader"
+else
+    fail "common.sh does not use a non-evaluating loader"
 fi
 if grep -q 'nvcr.io/nvidia/deepstream:' "${common_sh}"; then
     fail "common.sh still hardcodes an NGC DeepStream image tag"
@@ -232,6 +269,13 @@ if grep -qE 'DEEPSTREAM_VERSION="\$\{DEEPSTREAM_VERSION:-[0-9]' "${common_sh}"; 
     fail "common.sh duplicates a DeepStream version literal instead of deriving it from the profile"
 else
     pass "common.sh derives DEEPSTREAM_VERSION without per-profile literals"
+fi
+
+self_file="${ROOT_DIR}/scripts/check_dependency_pins.sh"
+if grep -qE '^[[:space:]]*(source|\.)[[:space:]]+.*versions\.env' "${self_file}"; then
+    fail "checker sources versions.env (must parse it non-evaluatingly)"
+else
+    pass "checker does not source versions.env"
 fi
 
 while IFS= read -r -d '' script; do
@@ -300,14 +344,29 @@ check_contains "${readme}" "DEEPINFER_ENFORCE_TOOLCHAIN" \
 # ---------------------------------------------------------------------------
 section "neuriplo-tasks API conformance"
 
-NEURIPLO_SRC="${NEURIPLO_TASKS_SRC:-}"
-if [[ -z "${NEURIPLO_SRC}" || ! -f "${NEURIPLO_SRC}/include/neuriplo/tasks/core/result_types.hpp" ]]; then
+checkout_version() {
+    local dir="$1"
+    [[ -f "${dir}/VERSION" ]] || return 1
+    printf 'v%s' "$(tr -d '[:space:]' <"${dir}/VERSION")"
+}
+
+NEURIPLO_SRC=""
+if [[ -n "${NEURIPLO_TASKS_SRC:-}" ]]; then
+    supplied_version="$(checkout_version "${NEURIPLO_TASKS_SRC}" || true)"
+    if [[ ! -f "${NEURIPLO_TASKS_SRC}/include/neuriplo/tasks/core/result_types.hpp" ]]; then
+        fail "NEURIPLO_TASKS_SRC has no neuriplo-tasks headers: ${NEURIPLO_TASKS_SRC}"
+    elif [[ "${supplied_version}" != "${NEURIPLO_TASKS_VERSION}" ]]; then
+        fail "NEURIPLO_TASKS_SRC version '${supplied_version:-unknown}' != pinned ${NEURIPLO_TASKS_VERSION}"
+    else
+        NEURIPLO_SRC="${NEURIPLO_TASKS_SRC}"
+    fi
+else
     fetch_src="${ROOT_DIR}/build/_deps/neuriplo-tasks-src"
-    if [[ -f "${fetch_src}/VERSION" ]]; then
-        fetch_version="v$(tr -d '[:space:]' <"${fetch_src}/VERSION")"
-        if [[ "${fetch_version}" == "${NEURIPLO_TASKS_VERSION}" ]]; then
-            NEURIPLO_SRC="${fetch_src}"
-        fi
+    fetch_version="$(checkout_version "${fetch_src}" || true)"
+    if [[ "${fetch_version}" == "${NEURIPLO_TASKS_VERSION}" ]]; then
+        NEURIPLO_SRC="${fetch_src}"
+    elif [[ -n "${fetch_version}" ]]; then
+        skip "build/_deps checkout is ${fetch_version}, not ${NEURIPLO_TASKS_VERSION}"
     fi
 fi
 
