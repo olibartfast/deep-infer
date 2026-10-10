@@ -89,7 +89,7 @@ pkg_check_modules(GSTREAMER_VIDEO REQUIRED gstreamer-video-1.0)
 pkg_check_modules(GLIB            REQUIRED glib-2.0)
 
 # ---------------------------------------------------------------------------
-# vision-core (fetched automatically)
+# neuriplo-tasks (fetched automatically)
 # ---------------------------------------------------------------------------
 include(FetchContent)
 FetchContent_Declare(
