@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.19)
 
-project(deep-infer)
+# Read version from VERSION file
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" PROJECT_VERSION_RAW)
+string(STRIP "${PROJECT_VERSION_RAW}" PROJECT_VERSION_RAW)
+string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PROJECT_SEMVER "${PROJECT_VERSION_RAW}")
+
+project(deep-infer VERSION ${PROJECT_SEMVER})
 
 # ---------------------------------------------------------------------------
 # Dependency versions (single source of truth)
@@ -89,7 +94,7 @@ pkg_check_modules(GSTREAMER_VIDEO REQUIRED gstreamer-video-1.0)
 pkg_check_modules(GLIB            REQUIRED glib-2.0)
 
 # ---------------------------------------------------------------------------
-# vision-core (fetched automatically)
+# neuriplo-tasks (fetched automatically)
 # ---------------------------------------------------------------------------
 include(FetchContent)
 FetchContent_Declare(

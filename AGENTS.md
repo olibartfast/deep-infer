@@ -9,7 +9,7 @@ This file is persistent repository memory for AI coding agents. Read it before m
 ## Project memory
 
 - This repository is a C++17 NVIDIA DeepStream application built with CMake.
-- `vision-core` is fetched automatically at configure time through CMake `FetchContent`.
+- `neuriplo-tasks` is fetched automatically at configure time through CMake `FetchContent`.
 - DeepStream is auto-detected from common install paths, or it can be supplied with `-DDEEPSTREAM_DIR=...`.
 - When DeepStream is available, the build uses `src/deepstream/DeepStreamPipeline.cpp`.
 - When DeepStream is not available, the build falls back to `src/deepstream/DeepStreamPipelineStub.cpp` so the project still builds with a clear runtime limitation.
