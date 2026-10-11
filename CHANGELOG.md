@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-11
+
+Test suite and testability seams; no runtime behavior change for valid inputs.
+
+### Added
+- C++ unit-test suite: 74 GoogleTest cases (`tests/`, `BUILD_TESTING=ON`,
+  `gtest_discover_tests`) covering utils, config, CLI parsing, logger, label
+  files, and tensor postprocessing; wired into CI.
+- `deep-infer-core` static library, so tests link production code instead of
+  recompiling sources.
+- `ConfigManager::ParseCommandLine` overload returning
+  `ParseResult{config, help_requested}` with a caller-supplied output stream
+  and logger; the library never calls `exit`.
+- Host-pure tensor API (`HalfToFloat`, model-type classifiers,
+  `DecodeYoloPoseTopN`, `PostprocessTensors`) compiled into the core library
+  with or without DeepStream.
+- `Logger` output-sink and clock injection (`SetOutputStream`, `SetClock`)
+  with identical defaults.
+- GoogleTest pinned in `versions.env` (`GOOGLETEST_VERSION v1.15.2`), fetched
+  only for test builds.
+- Opencode agent roles (orchestrator, planner, architect, reviewer,
+  implementer) under `.opencode/agent/`.
+
+### Changed
+- `TensorPostprocess.cpp` moved from the executable into `deep-infer-core`;
+  `DeepStreamPipeline` reuses the shared model-type classifier.
+- Malformed numeric CLI options now throw `ConfigError` naming the option
+  instead of leaking `stof`/`stoi` exceptions.
+- `GenerateRandomColors` uses a function-local `mt19937(42)` engine; the
+  deterministic color sequence differs from previous builds and the global
+  RNG is no longer touched.
+- `scripts/check_dependency_pins.sh` accepts `GIT_TAG` lines resolving from
+  any approved pin variable and validates `GOOGLETEST_VERSION` as a release
+  tag.
+
+### Fixed
+- `CMakeLists.txt` referenced a non-existent `tests/` directory when
+  `BUILD_TESTING=ON`; the suite now exists.
+- The OpenCV `libjbig` whole-archive workaround (INTERFACE target
+  `deep-infer-jbig`) now applies to the test binary as well as the
+  executable.
+
 ## [0.1.0] - 2026-10-11
 
 First tagged release.
@@ -43,5 +85,6 @@ First tagged release.
 ### Fixed
 - The debug counter reports every result type (segmentation, pose, detection).
 
-[Unreleased]: https://github.com/olibartfast/deep-infer/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/olibartfast/deep-infer/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/olibartfast/deep-infer/releases/tag/v0.1.1
 [0.1.0]: https://github.com/olibartfast/deep-infer/releases/tag/v0.1.0
