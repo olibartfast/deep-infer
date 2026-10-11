@@ -58,6 +58,7 @@ endforeach()
 # --- Required pins -----------------------------------------------------------
 set(_required_pins
     NEURIPLO_TASKS_REPO NEURIPLO_TASKS_VERSION
+    GOOGLETEST_REPO GOOGLETEST_VERSION
     CMAKE_MIN_VERSION CUDA_MIN_VERSION OPENCV_MIN_VERSION
     GSTREAMER_VERSION
     DEEPSTREAM_INSTALL_ROOT DEEPSTREAM_BASELINE_VERSION DEEPSTREAM_FALLBACK_VERSION)
@@ -73,6 +74,7 @@ endforeach()
 # --- Diagnostics -------------------------------------------------------------
 message(STATUS "Dependency pins resolved from ${VERSIONS_ENV_FILE}:")
 message(STATUS "  neuriplo-tasks: ${NEURIPLO_TASKS_REPO} (tag ${NEURIPLO_TASKS_VERSION})")
+message(STATUS "  googletest: ${GOOGLETEST_REPO} (tag ${GOOGLETEST_VERSION})")
 message(STATUS "  DeepStream: baseline ${DEEPSTREAM_BASELINE_VERSION}, "
     "fallback ${DEEPSTREAM_FALLBACK_VERSION} (root ${DEEPSTREAM_INSTALL_ROOT})")
 message(STATUS "  Minimums: CMake>=${CMAKE_MIN_VERSION}, CUDA>=${CUDA_MIN_VERSION}, "

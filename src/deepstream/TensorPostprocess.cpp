@@ -1,8 +1,6 @@
 #include "TensorPostprocess.hpp"
 #include "Logger.hpp"
 
-#if HAVE_DEEPSTREAM
-
 #include <neuriplo/tasks/core/tensor_utils.hpp>
 #include <neuriplo/tasks/core/result_types.hpp>
 #include <neuriplo/tasks/pose_estimation/yolo_pose_postprocessor.hpp>
@@ -10,11 +8,10 @@
 
 #include <cstring>
 #include <cmath>
+#include <cctype>
 #include <algorithm>
 
-namespace {
-using neuriplo_tasks::Tensor;
-using neuriplo_tasks::TensorElement;
+namespace deepinfer {
 
 // Correct IEEE 754 half (FP16) -> float conversion for host code.
 float HalfToFloat(uint16_t h) {
@@ -44,87 +41,6 @@ float HalfToFloat(uint16_t h) {
             break;
     }
     return out.f;
-}
-
-// Byte size of one element for a given NvDsInferDataType.
-std::size_t ElementSize(NvDsInferDataType dt) {
-    switch (dt) {
-        case FLOAT: return 4;   // FP32
-        case HALF:  return 2;   // FP16
-        case INT8:  return 1;
-        case INT32: return 4;
-        case INT64: return 8;
-        case UINT8: return 1;
-        default:    return 0;
-    }
-}
-
-// Build a neuriplo_tasks::Tensor from one nvinfer output layer's host buffer.
-// The NvDsInferLayerInfo buffer pointers are invalid inside output_layers_info,
-// so the caller passes the matching host buffer from out_buf_ptrs_host[].
-bool BuildTensor(const NvDsInferLayerInfo& info, const void* host_ptr, Tensor& out) {
-    const NvDsInferDims& dims = info.inferDims;
-    const std::size_t count = static_cast<std::size_t>(dims.numElements);
-    if (count == 0 || host_ptr == nullptr) {
-        return false;
-    }
-
-    const std::size_t elem = ElementSize(info.dataType);
-    if (elem == 0) {
-        return false;
-    }
-
-    out.shape.clear();
-    out.shape.reserve(static_cast<std::size_t>(dims.numDims) + 1);
-    // nvinfer's NvDsInferDims excludes the batch dimension; re-add it
-    // (batch-size=1) so downstream postprocessors see the full rank they
-    // expect (e.g. [batch, channels, anchors] for YOLO outputs).
-    out.shape.push_back(static_cast<int64_t>(1));
-    for (unsigned int i = 0; i < dims.numDims; ++i) {
-        out.shape.push_back(static_cast<int64_t>(dims.d[i]));
-    }
-
-    out.data.clear();
-    out.data.reserve(count);
-
-    switch (info.dataType) {
-        case FLOAT: {  // FP32
-            const auto* src = static_cast<const float*>(host_ptr);
-            for (std::size_t i = 0; i < count; ++i) {
-                out.data.emplace_back(src[i]);
-            }
-            break;
-        }
-        case HALF: {  // FP16 -> float
-            const auto* src = static_cast<const uint16_t*>(host_ptr);
-            for (std::size_t i = 0; i < count; ++i) {
-                out.data.emplace_back(HalfToFloat(src[i]));
-            }
-            break;
-        }
-        case INT32: {
-            const auto* src = static_cast<const int32_t*>(host_ptr);
-            for (std::size_t i = 0; i < count; ++i) {
-                out.data.emplace_back(src[i]);
-            }
-            break;
-        }
-        case INT64: {
-            const auto* src = static_cast<const int64_t*>(host_ptr);
-            for (std::size_t i = 0; i < count; ++i) {
-                out.data.emplace_back(src[i]);
-            }
-            break;
-        }
-        default: {  // INT8 / UINT8
-            const auto* src = static_cast<const uint8_t*>(host_ptr);
-            for (std::size_t i = 0; i < count; ++i) {
-                out.data.emplace_back(src[i]);
-            }
-            break;
-        }
-    }
-    return true;
 }
 
 bool IsPoseModel(const std::string& model_type) {
@@ -222,50 +138,20 @@ std::vector<neuriplo_tasks::PoseEstimation> DecodeYoloPoseTopN(
     return poses;
 }
 
-}  // namespace
-
-namespace deepinfer {
-
-std::vector<neuriplo_tasks::Result> PostprocessTensorMeta(
-    NvDsInferTensorMeta* tensor_meta,
+std::vector<neuriplo_tasks::Result> PostprocessTensors(
+    const std::vector<neuriplo_tasks::Tensor>& tensors,
+    const std::vector<std::string>& output_names,
     const std::string& model_type,
     const FrameSize& input_size,
     const FrameSize& frame_size,
     float confidence_threshold,
     float nms_threshold) {
     std::vector<neuriplo_tasks::Result> results;
-    if (tensor_meta == nullptr) {
+    if (tensors.empty()) {
         return results;
     }
 
     auto& logger = Logger::GetInstance();
-
-    // Collect every output layer as a neuriplo_tasks::Tensor.
-    // NvDsInferTensorMeta exposes layers as an array (output_layers_info[])
-    // with parallel host buffers in out_buf_ptrs_host[]. The buffer pointers
-    // inside output_layers_info[] are NOT valid, so we always read host memory.
-    std::vector<Tensor> tensors;
-    std::vector<std::string> output_names;
-    const guint num_layers = tensor_meta->num_output_layers;
-    for (guint i = 0; i < num_layers; ++i) {
-        const NvDsInferLayerInfo& info = tensor_meta->output_layers_info[i];
-        if (info.isInput) {
-            continue;
-        }
-        Tensor t;
-        if (BuildTensor(info, tensor_meta->out_buf_ptrs_host[i], t)) {
-            tensors.push_back(std::move(t));
-            if (info.layerName != nullptr) {
-                output_names.emplace_back(info.layerName);
-            }
-        } else {
-            logger.Warnf("TensorPostprocess: skipped output layer %u (empty/invalid)", i);
-        }
-    }
-
-    if (tensors.empty()) {
-        return results;
-    }
 
     // Diagnostic: log tensor shapes and the value range of the first tensor.
     {
@@ -321,6 +207,140 @@ std::vector<neuriplo_tasks::Result> PostprocessTensorMeta(
     }
 
     return results;
+}
+
+}  // namespace deepinfer
+
+#if HAVE_DEEPSTREAM
+
+namespace {
+using neuriplo_tasks::Tensor;
+using neuriplo_tasks::TensorElement;
+
+// Byte size of one element for a given NvDsInferDataType.
+std::size_t ElementSize(NvDsInferDataType dt) {
+    switch (dt) {
+        case FLOAT: return 4;   // FP32
+        case HALF:  return 2;   // FP16
+        case INT8:  return 1;
+        case INT32: return 4;
+        case INT64: return 8;
+        case UINT8: return 1;
+        default:    return 0;
+    }
+}
+
+// Build a neuriplo_tasks::Tensor from one nvinfer output layer's host buffer.
+// The NvDsInferLayerInfo buffer pointers are invalid inside output_layers_info,
+// so the caller passes the matching host buffer from out_buf_ptrs_host[].
+bool BuildTensor(const NvDsInferLayerInfo& info, const void* host_ptr, Tensor& out) {
+    const NvDsInferDims& dims = info.inferDims;
+    const std::size_t count = static_cast<std::size_t>(dims.numElements);
+    if (count == 0 || host_ptr == nullptr) {
+        return false;
+    }
+
+    const std::size_t elem = ElementSize(info.dataType);
+    if (elem == 0) {
+        return false;
+    }
+
+    out.shape.clear();
+    out.shape.reserve(static_cast<std::size_t>(dims.numDims) + 1);
+    // nvinfer's NvDsInferDims excludes the batch dimension; re-add it
+    // (batch-size=1) so downstream postprocessors see the full rank they
+    // expect (e.g. [batch, channels, anchors] for YOLO outputs).
+    out.shape.push_back(static_cast<int64_t>(1));
+    for (unsigned int i = 0; i < dims.numDims; ++i) {
+        out.shape.push_back(static_cast<int64_t>(dims.d[i]));
+    }
+
+    out.data.clear();
+    out.data.reserve(count);
+
+    switch (info.dataType) {
+        case FLOAT: {  // FP32
+            const auto* src = static_cast<const float*>(host_ptr);
+            for (std::size_t i = 0; i < count; ++i) {
+                out.data.emplace_back(src[i]);
+            }
+            break;
+        }
+        case HALF: {  // FP16 -> float
+            const auto* src = static_cast<const uint16_t*>(host_ptr);
+            for (std::size_t i = 0; i < count; ++i) {
+                out.data.emplace_back(deepinfer::HalfToFloat(src[i]));
+            }
+            break;
+        }
+        case INT32: {
+            const auto* src = static_cast<const int32_t*>(host_ptr);
+            for (std::size_t i = 0; i < count; ++i) {
+                out.data.emplace_back(src[i]);
+            }
+            break;
+        }
+        case INT64: {
+            const auto* src = static_cast<const int64_t*>(host_ptr);
+            for (std::size_t i = 0; i < count; ++i) {
+                out.data.emplace_back(src[i]);
+            }
+            break;
+        }
+        default: {  // INT8 / UINT8
+            const auto* src = static_cast<const uint8_t*>(host_ptr);
+            for (std::size_t i = 0; i < count; ++i) {
+                out.data.emplace_back(src[i]);
+            }
+            break;
+        }
+    }
+    return true;
+}
+
+}  // namespace
+
+namespace deepinfer {
+
+std::vector<neuriplo_tasks::Result> PostprocessTensorMeta(
+    NvDsInferTensorMeta* tensor_meta,
+    const std::string& model_type,
+    const FrameSize& input_size,
+    const FrameSize& frame_size,
+    float confidence_threshold,
+    float nms_threshold) {
+    std::vector<neuriplo_tasks::Result> results;
+    if (tensor_meta == nullptr) {
+        return results;
+    }
+
+    auto& logger = Logger::GetInstance();
+
+    // Collect every output layer as a neuriplo_tasks::Tensor.
+    // NvDsInferTensorMeta exposes layers as an array (output_layers_info[])
+    // with parallel host buffers in out_buf_ptrs_host[]. The buffer pointers
+    // inside output_layers_info[] are NOT valid, so we always read host memory.
+    std::vector<Tensor> tensors;
+    std::vector<std::string> output_names;
+    const guint num_layers = tensor_meta->num_output_layers;
+    for (guint i = 0; i < num_layers; ++i) {
+        const NvDsInferLayerInfo& info = tensor_meta->output_layers_info[i];
+        if (info.isInput) {
+            continue;
+        }
+        Tensor t;
+        if (BuildTensor(info, tensor_meta->out_buf_ptrs_host[i], t)) {
+            tensors.push_back(std::move(t));
+            if (info.layerName != nullptr) {
+                output_names.emplace_back(info.layerName);
+            }
+        } else {
+            logger.Warnf("TensorPostprocess: skipped output layer %u (empty/invalid)", i);
+        }
+    }
+
+    return PostprocessTensors(tensors, output_names, model_type, input_size, frame_size,
+                              confidence_threshold, nms_threshold);
 }
 
 }  // namespace deepinfer
