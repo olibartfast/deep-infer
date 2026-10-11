@@ -1,13 +1,10 @@
 #include "Config.hpp"
+#include "ConfigManager.hpp"
 #include "Logger.hpp"
 #include "DeepStreamPipeline.hpp"
 #include "utils.hpp"
 #include <iostream>
 #include <memory>
-
-// Forward declaration
-class ConfigManager;
-#include "../utils/ConfigManager.cpp"
 
 int main(int argc, const char* argv[]) {
     Logger& logger = Logger::GetInstance();

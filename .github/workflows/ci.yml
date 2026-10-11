@@ -38,13 +38,16 @@ jobs:
           rm -rf /var/lib/apt/lists/*
 
       - name: Configure
-        run: cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release -DDEEPINFER_ENFORCE_TOOLCHAIN=OFF
+        run: cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release -DDEEPINFER_ENFORCE_TOOLCHAIN=OFF -DBUILD_TESTING=ON
 
       - name: Check dependency pins
         run: bash scripts/check_dependency_pins.sh
 
       - name: Build
         run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
 
       - name: Smoke test
         run: ./build/deep-infer --help

@@ -102,12 +102,23 @@ the `CMAKE_MIN_VERSION` check always remains in force.
 
 ### Offline builds
 
-To build without network access, point CMake at a pre-provisioned
-`neuriplo-tasks` checkout instead of letting `FetchContent` clone it:
+To build without network access, point CMake at pre-provisioned checkouts
+instead of letting `FetchContent` clone them. The build fetches two
+dependencies: `neuriplo-tasks` (always) and `googletest` (only when
+`BUILD_TESTING=ON`):
 
 ```bash
 cmake -S . -B build -GNinja \
   -DFETCHCONTENT_SOURCE_DIR_NEURIPLO-TASKS=/path/to/neuriplo-tasks \
+  -DFETCHCONTENT_FULLY_DISCONNECTED=ON
+```
+
+For test builds, also supply the GoogleTest checkout:
+
+```bash
+cmake -S . -B build -GNinja -DBUILD_TESTING=ON \
+  -DFETCHCONTENT_SOURCE_DIR_NEURIPLO-TASKS=/path/to/neuriplo-tasks \
+  -DFETCHCONTENT_SOURCE_DIR_GOOGLETEST=/path/to/googletest \
   -DFETCHCONTENT_FULLY_DISCONNECTED=ON
 ```
 
@@ -162,6 +173,29 @@ cmake -S . -B build -GNinja \
     -DDEEPSTREAM_DIR=/opt/nvidia/deepstream/deepstream-9.1 \
     -DWITH_SHOW_FRAME=ON
 cmake --build build --parallel
+```
+
+## Testing
+
+The host-side test suite uses
+[GoogleTest](https://github.com/google/googletest). Enable it at configure
+time with `-DBUILD_TESTING=ON`, then build and run the tests through CTest:
+
+```bash
+cmake -S . -B build -GNinja -DBUILD_TESTING=ON
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
+```
+
+GoogleTest is fetched with CMake `FetchContent` and its version is pinned as
+`GOOGLETEST_VERSION` in [versions.env](versions.env) (currently `v1.15.2`). For
+offline test builds, point CMake at a pre-provisioned checkout instead of
+letting `FetchContent` clone it:
+
+```bash
+cmake -S . -B build -GNinja -DBUILD_TESTING=ON \
+  -DFETCHCONTENT_SOURCE_DIR_GOOGLETEST=/path/to/googletest \
+  -DFETCHCONTENT_FULLY_DISCONNECTED=ON
 ```
 
 ## Configure a model

@@ -85,6 +85,20 @@ find_library(JBIG_STATIC_LIB
     NAMES libjbig.a
     PATHS /usr/lib/x86_64-linux-gnu /usr/lib/aarch64-linux-gnu /usr/lib /usr/lib64)
 
+# Carry the whole-archive libjbig workaround in one place so every target that
+# links OpenCV transitively (the executable and the test binary) inherits it.
+# Consumers must link this AFTER their OpenCV-bearing dependency so libjbig
+# follows OpenCV on the link line.
+if(JBIG_STATIC_LIB)
+    add_library(deep-infer-jbig INTERFACE)
+    target_link_libraries(deep-infer-jbig
+        INTERFACE
+            -Wl,--whole-archive
+            ${JBIG_STATIC_LIB}
+            -Wl,--no-whole-archive
+    )
+endif()
+
 if(DEEPINFER_ENFORCE_TOOLCHAIN)
     pkg_check_modules(GSTREAMER       REQUIRED "gstreamer-1.0>=${GSTREAMER_VERSION}")
 else()
@@ -149,32 +163,34 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
+# CUDA target lib dirs (used by the executable and propagated to consumers).
+# ---------------------------------------------------------------------------
+set(CUDA_TARGET_LIB_DIRS "")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
+    # Jetson Orin uses SBSA-compatible ARM; fall back to generic aarch64 if missing
+    if(EXISTS "${CUDA_TOOLKIT_ROOT_DIR}/targets/sbsa-linux/lib")
+        list(APPEND CUDA_TARGET_LIB_DIRS "${CUDA_TOOLKIT_ROOT_DIR}/targets/sbsa-linux/lib")
+    endif()
+    if(EXISTS "${CUDA_TOOLKIT_ROOT_DIR}/targets/aarch64-linux/lib")
+        list(APPEND CUDA_TARGET_LIB_DIRS "${CUDA_TOOLKIT_ROOT_DIR}/targets/aarch64-linux/lib")
+    endif()
+elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$")
+    list(APPEND CUDA_TARGET_LIB_DIRS "${CUDA_TOOLKIT_ROOT_DIR}/targets/x86_64-linux/lib")
+endif()
+list(FILTER CUDA_TARGET_LIB_DIRS INCLUDE REGEX ".+")
+
+# ---------------------------------------------------------------------------
 # Targets
 # ---------------------------------------------------------------------------
-set(SOURCES
-    ${PROJECT_SOURCE_DIR}/src/main/main.cpp
+# Host-side logic that does not need the DeepStream runtime. Tests link this
+# target so they exercise production code rather than recompiling sources.
+add_library(deep-infer-core STATIC
     ${PROJECT_SOURCE_DIR}/src/utils/utils.cpp
     ${PROJECT_SOURCE_DIR}/src/utils/ConfigManager.cpp
 )
 
-if(DEEPSTREAM_FOUND)
-    list(APPEND SOURCES
-        ${PROJECT_SOURCE_DIR}/src/deepstream/DeepStreamPipeline.cpp
-    )
-else()
-    list(APPEND SOURCES
-        ${PROJECT_SOURCE_DIR}/src/deepstream/DeepStreamPipelineStub.cpp
-    )
-endif()
-
-list(APPEND SOURCES
-    ${PROJECT_SOURCE_DIR}/src/deepstream/TensorPostprocess.cpp
-)
-
-add_executable(${PROJECT_NAME} ${SOURCES})
-
-target_include_directories(${PROJECT_NAME}
-    PRIVATE
+target_include_directories(deep-infer-core
+    PUBLIC
         ${PROJECT_SOURCE_DIR}/include
         ${PROJECT_SOURCE_DIR}/src
         ${PROJECT_SOURCE_DIR}/src/utils
@@ -190,25 +206,60 @@ target_include_directories(${PROJECT_NAME}
 )
 
 if(DEEPSTREAM_FOUND)
-    target_include_directories(${PROJECT_NAME}
-        PRIVATE
+    target_include_directories(deep-infer-core
+        PUBLIC
             ${DEEPSTREAM_INC_DIR}
     )
 endif()
 
-set(CUDA_TARGET_LIB_DIRS "")
+target_link_libraries(deep-infer-core
+    PUBLIC
+        neuriplo-tasks
+        ${OpenCV_LIBS}
+        ${GSTREAMER_LIBRARIES}
+        ${GLIB_LIBRARIES}
+)
+
+target_compile_definitions(deep-infer-core
+    PUBLIC
+        HAVE_DEEPSTREAM=$<BOOL:${DEEPSTREAM_FOUND}>
+        ${DEEP_INFER_COMPILE_DEFINITIONS}
+)
+
+target_compile_options(deep-infer-core
+    PRIVATE
+        -Wall
+        -Wextra
+        -Wno-unused-parameter
+)
+
+# GNU ld does not always search the multiarch lib dir (e.g.
+# /usr/lib/x86_64-linux-gnu) for the indirect DT_NEEDED dependencies of shared
+# libraries such as OpenCV's libtiff -> libjbig. Point -rpath-link at the
+# multiarch directory so these transitive shared deps resolve at link time.
+# PUBLIC so test executables linking deep-infer-core inherit it too.
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
-    # Jetson Orin uses SBSA-compatible ARM; fall back to generic aarch64 if missing
-    if(EXISTS "${CUDA_TOOLKIT_ROOT_DIR}/targets/sbsa-linux/lib")
-        list(APPEND CUDA_TARGET_LIB_DIRS "${CUDA_TOOLKIT_ROOT_DIR}/targets/sbsa-linux/lib")
-    endif()
-    if(EXISTS "${CUDA_TOOLKIT_ROOT_DIR}/targets/aarch64-linux/lib")
-        list(APPEND CUDA_TARGET_LIB_DIRS "${CUDA_TOOLKIT_ROOT_DIR}/targets/aarch64-linux/lib")
-    endif()
+    target_link_options(deep-infer-core PUBLIC -Wl,-rpath-link,/usr/lib/aarch64-linux-gnu)
 elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$")
-    list(APPEND CUDA_TARGET_LIB_DIRS "${CUDA_TOOLKIT_ROOT_DIR}/targets/x86_64-linux/lib")
+    target_link_options(deep-infer-core PUBLIC -Wl,-rpath-link,/usr/lib/x86_64-linux-gnu)
 endif()
-list(FILTER CUDA_TARGET_LIB_DIRS INCLUDE REGEX ".+")
+
+set(APP_SOURCES
+    ${PROJECT_SOURCE_DIR}/src/main/main.cpp
+    ${PROJECT_SOURCE_DIR}/src/deepstream/TensorPostprocess.cpp
+)
+
+if(DEEPSTREAM_FOUND)
+    list(APPEND APP_SOURCES
+        ${PROJECT_SOURCE_DIR}/src/deepstream/DeepStreamPipeline.cpp
+    )
+else()
+    list(APPEND APP_SOURCES
+        ${PROJECT_SOURCE_DIR}/src/deepstream/DeepStreamPipelineStub.cpp
+    )
+endif()
+
+add_executable(${PROJECT_NAME} ${APP_SOURCES})
 
 target_link_directories(${PROJECT_NAME}
     PRIVATE
@@ -224,23 +275,18 @@ endif()
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
-        neuriplo-tasks
-        ${OpenCV_LIBS}
+        deep-infer-core
         ${CUDA_LIBRARIES}
-        ${GSTREAMER_LIBRARIES}
-        ${GLIB_LIBRARIES}
         cuda
         cudart
         pthread
         dl
 )
 
-if(JBIG_STATIC_LIB)
+if(TARGET deep-infer-jbig)
     target_link_libraries(${PROJECT_NAME}
         PRIVATE
-            -Wl,--whole-archive
-            ${JBIG_STATIC_LIB}
-            -Wl,--no-whole-archive
+            deep-infer-jbig
     )
 endif()
 
@@ -258,28 +304,12 @@ if(DEEPSTREAM_FOUND)
     )
 endif()
 
-target_compile_definitions(${PROJECT_NAME}
-    PRIVATE
-        HAVE_DEEPSTREAM=$<BOOL:${DEEPSTREAM_FOUND}>
-        ${DEEP_INFER_COMPILE_DEFINITIONS}
-)
-
 target_compile_options(${PROJECT_NAME}
     PRIVATE
         -Wall
         -Wextra
         -Wno-unused-parameter
 )
-
-# GNU ld does not always search the multiarch lib dir (e.g.
-# /usr/lib/x86_64-linux-gnu) for the indirect DT_NEEDED dependencies of shared
-# libraries such as OpenCV's libtiff -> libjbig. Point -rpath-link at the
-# multiarch directory so these transitive shared deps resolve at link time.
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
-    target_link_options(${PROJECT_NAME} PRIVATE -Wl,-rpath-link,/usr/lib/aarch64-linux-gnu)
-elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64)$")
-    target_link_options(${PROJECT_NAME} PRIVATE -Wl,-rpath-link,/usr/lib/x86_64-linux-gnu)
-endif()
 
 # ---------------------------------------------------------------------------
 # Install
@@ -293,5 +323,22 @@ install(TARGETS ${PROJECT_NAME}
 # ---------------------------------------------------------------------------
 if(BUILD_TESTING)
     enable_testing()
+
+    # GoogleTest is fetched only for test builds so normal builds stay free of
+    # the extra dependency. The version is pinned in versions.env; offline
+    # builds can point FETCHCONTENT_SOURCE_DIR_GOOGLETEST at a checkout.
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
+    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY ${GOOGLETEST_REPO}
+        GIT_TAG        ${GOOGLETEST_VERSION}
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_MakeAvailable(googletest)
+
+    include(GoogleTest)
     add_subdirectory(tests)
 endif()

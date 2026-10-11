@@ -76,6 +76,7 @@ done
 
 REQUIRED_KEYS=(
     NEURIPLO_TASKS_REPO NEURIPLO_TASKS_VERSION
+    GOOGLETEST_REPO GOOGLETEST_VERSION
     CMAKE_MIN_VERSION CUDA_MIN_VERSION TENSORRT_MIN_VERSION
     GSTREAMER_VERSION OPENCV_MIN_VERSION
     UBUNTU_VERSION JETPACK_VERSION L4T_VERSION
@@ -98,6 +99,12 @@ if [[ "${NEURIPLO_TASKS_VERSION:-}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     pass "neuriplo-tasks pinned to release tag ${NEURIPLO_TASKS_VERSION}"
 else
     fail "neuriplo-tasks version '${NEURIPLO_TASKS_VERSION:-unset}' is not a release tag (vX.Y.Z)"
+fi
+
+if [[ "${GOOGLETEST_VERSION:-}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    pass "googletest pinned to release tag ${GOOGLETEST_VERSION}"
+else
+    fail "googletest version '${GOOGLETEST_VERSION:-unset}' is not a release tag (vX.Y.Z)"
 fi
 
 # ---------------------------------------------------------------------------
@@ -128,15 +135,25 @@ if grep -q 'NEURIPLO_TASKS_REPO' "${cmake_file}"; then
 else
     fail "CMakeLists.txt does not use NEURIPLO_TASKS_REPO"
 fi
+if grep -q 'GOOGLETEST_VERSION' "${cmake_file}"; then
+    pass "CMakeLists.txt uses GOOGLETEST_VERSION"
+else
+    fail "CMakeLists.txt does not use GOOGLETEST_VERSION"
+fi
+if grep -q 'GOOGLETEST_REPO' "${cmake_file}"; then
+    pass "CMakeLists.txt uses GOOGLETEST_REPO"
+else
+    fail "CMakeLists.txt does not use GOOGLETEST_REPO"
+fi
 if grep -qE 'GIT_TAG[[:space:]]+master' "${cmake_file}"; then
     fail "CMakeLists.txt still pins GIT_TAG master"
 else
     pass "CMakeLists.txt has no floating GIT_TAG master"
 fi
-if grep -E 'GIT_TAG' "${cmake_file}" | grep -qv 'NEURIPLO_TASKS_VERSION'; then
-    fail "CMakeLists.txt has a GIT_TAG that is not NEURIPLO_TASKS_VERSION"
+if grep -E 'GIT_TAG' "${cmake_file}" | grep -qvE 'GIT_TAG[[:space:]]+\$\{(NEURIPLO_TASKS_VERSION|GOOGLETEST_VERSION)\}[[:space:]]*$'; then
+    fail "CMakeLists.txt has a GIT_TAG that resolves from no approved pin variable"
 else
-    pass "every GIT_TAG resolves from NEURIPLO_TASKS_VERSION"
+    pass "every GIT_TAG resolves from an approved pin variable"
 fi
 if grep -q 'GIT_SHALLOW' "${cmake_file}"; then
     pass "CMakeLists.txt fetches the pinned ref shallowly"
@@ -338,6 +355,8 @@ check_contains "${readme}" "FETCHCONTENT_SOURCE_DIR_NEURIPLO-TASKS" \
 check_contains "${readme}" "-D" "README documents the -D override precedence"
 check_contains "${readme}" "DEEPINFER_ENFORCE_TOOLCHAIN" \
     "README documents DEEPINFER_ENFORCE_TOOLCHAIN"
+check_contains "${readme}" "BUILD_TESTING" \
+    "README documents BUILD_TESTING"
 
 # ---------------------------------------------------------------------------
 # API conformance compile
