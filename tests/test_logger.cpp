@@ -2,6 +2,9 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
+#include <ctime>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <streambuf>
@@ -34,7 +37,9 @@ class CoutCapture {
 class LoggerTest : public ::testing::Test {
  protected:
     void TearDown() override {
-        // Ensure no level leakage between tests.
+        // Ensure no sink/clock/level leakage between tests.
+        Logger::GetInstance().SetOutputStream(std::cout);
+        Logger::GetInstance().SetClock([]{ return std::chrono::system_clock::now(); });
         Logger::GetInstance().SetLogLevel(LogLevel::INFO);
     }
 };
@@ -108,6 +113,25 @@ TEST_F(LoggerTest, ErrorEmitsErrorTag) {
     const std::string output = capture.str();
     EXPECT_NE(output.find("[ERROR]"), std::string::npos);
     EXPECT_NE(output.find("boom"), std::string::npos);
+}
+
+TEST_F(LoggerTest, ExactFormatWithInjectedSinkAndClock) {
+    Logger& logger = Logger::GetInstance();
+    logger.SetLogLevel(LogLevel::INFO);
+
+    std::ostringstream sink;
+    logger.SetOutputStream(sink);
+
+    const std::time_t fixed = 0;
+    logger.SetClock([fixed] { return std::chrono::system_clock::from_time_t(fixed); });
+
+    logger.Info("hello");
+
+    std::time_t t = fixed;
+    std::ostringstream ts;
+    ts << std::put_time(std::localtime(&t), "%Y-%m-%d %H:%M:%S");
+    const std::string expected = "[" + ts.str() + "] [INFO] hello\n";
+    EXPECT_EQ(sink.str(), expected);
 }
 
 }  // namespace

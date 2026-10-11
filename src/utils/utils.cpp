@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <sstream>
 #include <fstream>
+#include <random>
 
 std::vector<std::string> Split(const std::string& s, char delimiter) {
     std::vector<std::string> tokens;
@@ -41,9 +42,10 @@ bool IsVideoFile(const std::string& file_name) {
 
 std::vector<cv::Scalar> GenerateRandomColors(size_t size) {
     std::vector<cv::Scalar> colors;
-    srand(42);  // Fixed seed for reproducibility
+    std::mt19937 engine(42);  // Local engine: deterministic, no global RNG touched
+    std::uniform_int_distribution<int> dist(0, 255);
     for (size_t i = 0; i < size; i++) {
-        colors.push_back(cv::Scalar(rand() % 256, rand() % 256, rand() % 256));
+        colors.push_back(cv::Scalar(dist(engine), dist(engine), dist(engine)));
     }
     return colors;
 }
@@ -53,9 +55,9 @@ void DrawLabel(cv::Mat& input_image, const std::string& label,
     int base_line;
     std::string text = label + ": " + std::to_string(confidence).substr(0, 4);
     cv::Size label_size = cv::getTextSize(text, cv::FONT_HERSHEY_SIMPLEX, 0.5, 1, &base_line);
-    
+
     top = std::max(top, label_size.height);
-    cv::rectangle(input_image, 
+    cv::rectangle(input_image,
                   cv::Point(left, top - label_size.height),
                   cv::Point(left + label_size.width, top + base_line),
                   cv::Scalar(255, 255, 255), cv::FILLED);

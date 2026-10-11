@@ -5,6 +5,7 @@ add_executable(deep-infer-tests
     test_config_manager.cpp
     test_logger.cpp
     test_task_interface.cpp
+    test_tensor_postprocess.cpp
 )
 
 target_link_libraries(deep-infer-tests

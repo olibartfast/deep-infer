@@ -10,20 +10,6 @@
 
 namespace {
 constexpr const char* kNvmmMemoryFeature = "memory:NVMM";
-
-// Models whose raw output tensors are post-processed by neuriplo-tasks in the
-// OSD sink probe rather than through DeepStream's object-metadata parsers.
-bool UsesTensorMetaPostprocess(const std::string& model_type) {
-    std::string t;
-    t.reserve(model_type.size());
-    for (char c : model_type) {
-        t.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
-    }
-    const bool pose = (t.find("yolo") != std::string::npos) && (t.find("pose") != std::string::npos);
-    const bool rfdetr_seg =
-        (t.find("rfdetr") != std::string::npos) && (t.find("seg") != std::string::npos);
-    return pose || rfdetr_seg;
-}
 }  // namespace
 
 DeepStreamPipeline::DeepStreamPipeline(const Config& config)
@@ -183,7 +169,8 @@ bool DeepStreamPipeline::ConfigureElements() {
     // parsers and instead read the raw output tensors (output-tensor-meta=1)
     // so neuriplo-tasks postprocessors can run in the probe. network-type=100
     // (custom) is set in the nvinfer config file itself.
-    if (UsesTensorMetaPostprocess(config_.model_type)) {
+    if (deepinfer::IsPoseModel(config_.model_type) ||
+        deepinfer::IsRfDetrSegmentation(config_.model_type)) {
         g_object_set(G_OBJECT(pgie_),
             "output-tensor-meta", TRUE,
             "gpu-id", config_.gpu_id,
@@ -384,7 +371,8 @@ GstPadProbeReturn DeepStreamPipeline::OsdSinkPadBufferProbe(
         return GST_PAD_PROBE_OK;
     }
 
-    const bool tensor_meta_mode = UsesTensorMetaPostprocess(pipeline->config_.model_type);
+    const bool tensor_meta_mode = deepinfer::IsPoseModel(pipeline->config_.model_type) ||
+        deepinfer::IsRfDetrSegmentation(pipeline->config_.model_type);
 
     for (NvDsMetaList* frame_node = batch_meta->frame_meta_list;
          frame_node != nullptr;

@@ -65,3 +65,44 @@ and the role definitions, not the model split.
   `deep-infer-core`; harmless but broader than strictly required.
 - CI was not executed in this run (no GitHub runner); the CI file is validated
   by the pin checker's static assertions only.
+
+## Phase 2 — reviewer fixes (modularity / DI)
+
+Scope: M1 + M2 (blocking) and S1–S3 (should-fix) from the modularity/DI
+review; C1–C3 explicitly deferred as optional.
+
+- **FA (implementer)** — `ConfigManager`: `ParseResult{config, help_requested}`
+  overload with caller-supplied `ostream`/`Logger&`; library never calls
+  `exit`; `main` owns the help exit; numeric options throw `ConfigError`
+  naming the option; legacy 2-arg wrapper preserved.
+- **FB (implementer)** — tensor core: pure helpers + `PostprocessTensors`
+  unconditional in `TensorPostprocess.cpp`, now compiled into
+  `deep-infer-core`; only the `NvDsInferTensorMeta` adapter stays SDK-gated;
+  `DeepStreamPipeline.cpp` classifier deduped to the shared functions;
+  `tests/test_tensor_postprocess.cpp` (11 tests).
+- **FC (implementer)** — `Logger`: injected sink (`SetOutputStream`, default
+  `cout`) and clock (`SetClock`, default `now`); exact-format test;
+  `GenerateRandomColors` uses a function-local `mt19937(42)` (no `srand`).
+
+## Scoreboard — fix phase
+
+Same single command as Phase 1, fresh `/tmp/opencode/scoreboard-build`.
+
+- **Result**: `SCOREBOARD_EXIT=0` — 74/74 ctest cases passed
+  (56 + 6 ConfigManager + 11 tensor + 1 logger exact-format);
+  `check_dependency_pins.sh` → `RESULT: PASS (81 ok, 0 skipped)`.
+
+## Attempt log (continued)
+
+| # | Role | Model tier | Outcome | Notes |
+|---|------|-----------|---------|-------|
+| 8 | reviewer (modularity/DI) | meta-1.3 | **reject** | M1, M2 blocking; S1–S3 should-fix |
+| 9 | implementer (FA) | deepseek-4.1 | pass | help seam + ConfigError; 74/74 targeted |
+| 10 | implementer (FB) | deepseek-4.1 | pass | tensor core move; 74/74 targeted |
+| 11 | implementer (FC) | deepseek-4.1 | pass | sink/clock + RNG; 31/31 filtered |
+| 12 | reviewer (re-check) | meta-1.3 | **accept** | all M/S resolved; no scope creep |
+| 13 | orchestrator (scoreboard) | deepseek-4.1 | **pass** | exit 0; 74/74 + checker 81 ok |
+
+Residual (accepted, low): legacy 2-arg `ParseCommandLine` shim still exits
+(by design, unused by main/tests); URI/source-type helpers stay private in the
+pipeline; RF-DETR multi-tensor path has no dedicated unit test.

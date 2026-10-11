@@ -187,6 +187,7 @@ list(FILTER CUDA_TARGET_LIB_DIRS INCLUDE REGEX ".+")
 add_library(deep-infer-core STATIC
     ${PROJECT_SOURCE_DIR}/src/utils/utils.cpp
     ${PROJECT_SOURCE_DIR}/src/utils/ConfigManager.cpp
+    ${PROJECT_SOURCE_DIR}/src/deepstream/TensorPostprocess.cpp
 )
 
 target_include_directories(deep-infer-core
@@ -246,7 +247,6 @@ endif()
 
 set(APP_SOURCES
     ${PROJECT_SOURCE_DIR}/src/main/main.cpp
-    ${PROJECT_SOURCE_DIR}/src/deepstream/TensorPostprocess.cpp
 )
 
 if(DEEPSTREAM_FOUND)

@@ -14,7 +14,11 @@ int main(int argc, const char* argv[]) {
         logger.Info("Starting application...");
         
         // Parse command line arguments
-        Config config = ConfigManager::ParseCommandLine(argc, argv);
+        ParseResult parsed = ConfigManager::ParseCommandLine(argc, argv, std::cout, logger);
+        if (parsed.help_requested) {
+            return 0;
+        }
+        Config config = parsed.config;
         
         // Validate configuration
         if (!config.IsValid()) {

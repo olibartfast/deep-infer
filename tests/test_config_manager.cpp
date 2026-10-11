@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -16,6 +17,17 @@ Config Parse(const std::vector<std::string>& args) {
         argv.push_back(arg.c_str());
     }
     return ConfigManager::ParseCommandLine(static_cast<int>(argv.size()), argv.data());
+}
+
+ParseResult ParseWithHelp(const std::vector<std::string>& args, std::ostringstream& help_out) {
+    std::vector<const char*> argv;
+    const std::string program = "deep-infer";
+    argv.push_back(program.c_str());
+    for (const auto& arg : args) {
+        argv.push_back(arg.c_str());
+    }
+    return ConfigManager::ParseCommandLine(static_cast<int>(argv.size()), argv.data(), help_out,
+                                           Logger::GetInstance());
 }
 
 }  // namespace
@@ -133,4 +145,52 @@ TEST(ConfigManagerTest, MissingValueLeavesFieldEmpty) {
 TEST(ConfigManagerTest, UnknownOptionIsIgnored) {
     const Config config = Parse({"--does-not-exist", "-s", "video.mp4"});
     EXPECT_EQ(config.source, "video.mp4");
+}
+
+TEST(ConfigManagerTest, HelpSetsHelpRequested) {
+    std::ostringstream help_out;
+    const ParseResult result = ParseWithHelp({"--help"}, help_out);
+    EXPECT_TRUE(result.help_requested);
+    EXPECT_NE(help_out.str().find("Usage: deep-infer"), std::string::npos);
+}
+
+TEST(ConfigManagerTest, ShortHelpSetsHelpRequested) {
+    std::ostringstream help_out;
+    const ParseResult result = ParseWithHelp({"-h"}, help_out);
+    EXPECT_TRUE(result.help_requested);
+    EXPECT_NE(help_out.str().find("Usage: deep-infer"), std::string::npos);
+}
+
+TEST(ConfigManagerTest, NormalArgsDoNotRequestHelp) {
+    std::ostringstream help_out;
+    const ParseResult result =
+        ParseWithHelp({"-s", "video.mp4", "-c", "config.txt", "-mt", "yolov8"}, help_out);
+    EXPECT_FALSE(result.help_requested);
+    EXPECT_EQ(result.config.source, "video.mp4");
+    EXPECT_EQ(result.config.config_file, "config.txt");
+    EXPECT_EQ(result.config.model_type, "yolov8");
+}
+
+TEST(ConfigManagerTest, InvalidConfidenceThrowsConfigError) {
+    std::ostringstream help_out;
+    std::vector<const char*> argv = {"deep-infer", "--confidence=abc"};
+    EXPECT_THROW(
+        (void)ConfigManager::ParseCommandLine(2, argv.data(), help_out, Logger::GetInstance()),
+        ConfigError);
+}
+
+TEST(ConfigManagerTest, InvalidNmsThrowsConfigError) {
+    std::ostringstream help_out;
+    std::vector<const char*> argv = {"deep-infer", "--nms=xyz"};
+    EXPECT_THROW(
+        (void)ConfigManager::ParseCommandLine(2, argv.data(), help_out, Logger::GetInstance()),
+        ConfigError);
+}
+
+TEST(ConfigManagerTest, InvalidGpuThrowsConfigError) {
+    std::ostringstream help_out;
+    std::vector<const char*> argv = {"deep-infer", "--gpu=abc"};
+    EXPECT_THROW(
+        (void)ConfigManager::ParseCommandLine(2, argv.data(), help_out, Logger::GetInstance()),
+        ConfigError);
 }
